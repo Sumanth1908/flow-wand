@@ -1,11 +1,19 @@
 import React, { memo } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { motion } from 'framer-motion';
 
-const TopicNode = memo(({ data, selected }) => {
+type TopicNodeData = {
+    label: string;
+    partitions?: number;
+    description?: string;
+    eventNames?: string[];
+    simulationState?: 'active' | 'visited' | null;
+    activeFlowColor?: string;
+};
+
+const TopicNode = memo(({ data, selected }: NodeProps<Node<TopicNodeData>>) => {
     const isActive = data.simulationState === 'active';
     const isVisited = data.simulationState === 'visited';
-    const isSimulating = isActive || isVisited;
 
     return (
         <motion.div
@@ -13,7 +21,7 @@ const TopicNode = memo(({ data, selected }) => {
             style={data.activeFlowColor ? {
                 borderColor: data.activeFlowColor,
                 boxShadow: selected ? `0 0 0 2px ${data.activeFlowColor}` : 'none'
-            } : {}}
+            } as React.CSSProperties : {}}
             animate={
                 isActive
                     ? {
@@ -30,8 +38,8 @@ const TopicNode = memo(({ data, selected }) => {
         >
             <Handle type="target" position={Position.Left} className="handle-target" />
 
-            <div className="node-header topic-header" style={data.activeFlowColor ? { borderBottomColor: data.activeFlowColor } : {}}>
-                <div className="node-icon topic-icon" style={data.activeFlowColor ? { color: data.activeFlowColor, background: `color-mix(in srgb, ${data.activeFlowColor} 15%, transparent)` } : {}}>
+            <div className="node-header topic-header" style={data.activeFlowColor ? { borderBottomColor: data.activeFlowColor } as React.CSSProperties : {}}>
+                <div className="node-icon topic-icon" style={data.activeFlowColor ? { color: data.activeFlowColor, background: `color-mix(in srgb, ${data.activeFlowColor} 15%, transparent)` } as React.CSSProperties : {}}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
                         <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />

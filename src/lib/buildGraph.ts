@@ -1,19 +1,28 @@
 /**
- * lib/buildGraph.js
+ * lib/buildGraph.ts
  * ─────────────────────────────────────────────────────────────
  * Pure function: given topics, flinkJobs, activeFlowId and
  * simulation state → returns { nodes, edges } for React Flow.
  */
-import { MarkerType } from '@xyflow/react';
+import { MarkerType, Node, Edge } from '@xyflow/react';
+import { Topic, FlinkJob, DataFlow, EventType, SimulationState } from '../types';
 
 const NODE_SPACING_Y = 160;
 const COL_GAP = 400;
 const ORIGIN_X = 60;
 const ORIGIN_Y = 80;
 
-/** @param {{ id: string }[]} topics @param {{ id: string, sourceTopics: string[], sinkTopics: string[] }[]} visibleJobs */
-function classifyTopics(topics, visibleJobs) {
-    const sourceOnly = [], sinkOnly = [], middle = [], isolated = [];
+interface BuildGraphParams {
+    topics: Topic[];
+    flinkJobs: FlinkJob[];
+    flows: DataFlow[];
+    events?: EventType[];
+    activeFlowId: string | null;
+    simulation: SimulationState;
+}
+
+function classifyTopics(topics: Topic[], visibleJobs: FlinkJob[]) {
+    const sourceOnly: Topic[] = [], sinkOnly: Topic[] = [], middle: Topic[] = [], isolated: Topic[] = [];
     topics.forEach(topic => {
         const isSource = visibleJobs.some(j => j.sourceTopics.includes(topic.id));
         const isSink = visibleJobs.some(j => j.sinkTopics.includes(topic.id));
@@ -25,24 +34,24 @@ function classifyTopics(topics, visibleJobs) {
     return { sourceOnly, sinkOnly, middle, isolated };
 }
 
-function topicSimState(topicId, sim) {
+function topicSimState(topicId: string, sim: SimulationState) {
     if (sim?.currentTopicId === topicId && sim.active) return 'active';
     if (sim?.visitedTopicIds?.includes(topicId)) return 'visited';
     return 'idle';
 }
 
-function jobSimState(jobId, sim) {
+function jobSimState(jobId: string, sim: SimulationState) {
     if (sim?.visitedJobIds?.includes(jobId)) return 'visited';
     return 'idle';
 }
 
-export function buildGraph({ topics, flinkJobs, flows, events = [], activeFlowId, simulation }) {
-    const nodes = [];
-    const edges = [];
+export function buildGraph({ topics, flinkJobs, flows, events = [], activeFlowId, simulation }: BuildGraphParams): { nodes: Node[], edges: Edge[] } {
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
 
     // Filter to active flow
     let visibleJobs = flinkJobs;
-    let activeFlowColor = null;
+    let activeFlowColor: string | undefined = undefined;
     if (activeFlowId) {
         const flow = flows.find(f => f.id === activeFlowId);
         if (flow) {
@@ -52,7 +61,7 @@ export function buildGraph({ topics, flinkJobs, flows, events = [], activeFlowId
     }
 
     // Collect visible topic IDs
-    const visibleTopicIds = new Set();
+    const visibleTopicIds = new Set<string>();
     visibleJobs.forEach(job => {
         job.sourceTopics.forEach(id => visibleTopicIds.add(id));
         job.sinkTopics.forEach(id => visibleTopicIds.add(id));
@@ -63,7 +72,7 @@ export function buildGraph({ topics, flinkJobs, flows, events = [], activeFlowId
     const { sourceOnly, sinkOnly, middle, isolated } = classifyTopics(visibleTopics, visibleJobs);
 
     // Layout helpers
-    const makeTopicNode = (topic, col, row) => ({
+    const makeTopicNode = (topic: Topic, col: number, row: number): Node => ({
         id: topic.id,
         type: 'topic',
         position: { x: ORIGIN_X + col * COL_GAP, y: ORIGIN_Y + row * NODE_SPACING_Y },
@@ -80,7 +89,7 @@ export function buildGraph({ topics, flinkJobs, flows, events = [], activeFlowId
         },
     });
 
-    const makeJobNode = (job, row) => ({
+    const makeJobNode = (job: FlinkJob, row: number): Node => ({
         id: job.id,
         type: 'flinkJob',
         position: { x: ORIGIN_X + COL_GAP, y: ORIGIN_Y + row * NODE_SPACING_Y },

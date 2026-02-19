@@ -1,5 +1,5 @@
 /**
- * components/simulation/EventDispatcher.jsx
+ * components/simulation/EventDispatcher.tsx
  */
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,9 +8,12 @@ import useStore from '../../store/useStore';
 
 const DEFAULT_PAYLOAD = JSON.stringify({ key: 'value', timestamp: '{{now}}' }, null, 2);
 
-const EventDispatcher = ({ onClose }) => {
+interface EventDispatcherProps {
+    onClose: () => void;
+}
+
+const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
     const topics = useStore(s => s.topics);
-    const flinkJobs = useStore(s => s.flinkJobs);
     const startSimulation = useStore(s => s.startSimulation);
     const simulation = useStore(s => s.simulation);
 
@@ -19,23 +22,22 @@ const EventDispatcher = ({ onClose }) => {
     const [payloadError, setPayloadError] = useState('');
     const [showPayload, setShowPayload] = useState(false);
 
-    // Show all topics so user can fire events even if not connected yet
     const selectableTopics = topics;
 
-    const validatePayload = useCallback((val) => {
+    const validatePayload = useCallback((val: string) => {
         if (!val.trim()) { setPayloadError(''); return true; }
         try {
             // Substitute {{now}} before parsing so template is valid JSON
             JSON.parse(val.replace(/\{\{now\}\}/g, new Date().toISOString()));
             setPayloadError('');
             return true;
-        } catch (e) {
+        } catch (e: any) {
             setPayloadError(e.message.replace('JSON.parse: ', ''));
             return false;
         }
     }, []);
 
-    const handlePayloadChange = (e) => {
+    const handlePayloadChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setPayload(e.target.value);
         validatePayload(e.target.value);
     };
@@ -43,7 +45,7 @@ const EventDispatcher = ({ onClose }) => {
     const handleFire = () => {
         if (!selectedTopicId) return;
         if (!validatePayload(payload)) return;
-        // Resolve {{now}} to current ISO timestamp
+
         let resolvedPayload = null;
         if (payload.trim()) {
             try {

@@ -12,10 +12,11 @@
 -   **📝 Live Event Logging**: Monitor the simulation step-by-step with a high-fidelity console. Inspect payloads as they transform through Flink jobs.
 -   **💾 Project Management**: Create multiple projects, save your progress locally, and export/import your architectures as portable JSON templates.
 -   **🌑 Premium Aesthetics**: A "glassmorphic" Dark Mode interface designed for deep work, featuring smooth animations powered by Framer Motion.
+-   **🛡️ Type Safe Architecture**: Fully converted to TypeScript for robust development and architectural clarity.
 
 ## 🛠️ Technology Stack
 
--   **Core**: [React](https://reactjs.org/) + [Vite](https://vitejs.dev/)
+-   **Core**: [React](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
 -   **Graph Engine**: [@xyflow/react](https://reactflow.dev/) (React Flow)
 -   **State Management**: [Zustand](https://github.com/pmndrs/zustand)
 -   **Animations**: [Framer Motion](https://www.framer.com/motion/)
@@ -43,6 +44,11 @@ To run FlowWand locally:
     ```
 
 4.  **Open your browser**: Navigate to `http://localhost:5173`.
+
+## 🛠️ Development
+
+-   **Type Checking**: Run `npx tsc --noEmit` to check for type errors.
+-   **Production Build**: Run `npm run build` to generate a production-ready bundle in the `dist/` directory.
 
 ## 📖 Usage Highlights
 

@@ -2,9 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { AlertCircle, Check } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
+import { Topic } from '../../types';
 
-const TopicForm = ({ color }) => {
-    const editingItem = useStore(s => s.editingItem);
+interface TopicFormProps {
+    color: string;
+}
+
+const TopicForm: React.FC<TopicFormProps> = ({ color }) => {
+    const editingItem = useStore(s => s.editingItem) as Topic | null;
     const closeModal = useStore(s => s.closeModal);
     const addTopic = useStore(s => s.addTopic);
     const updateTopic = useStore(s => s.updateTopic);
@@ -14,7 +19,7 @@ const TopicForm = ({ color }) => {
     const [name, setName] = useState(editingItem?.name || '');
     const [partitions, setParts] = useState(editingItem?.partitions || 1);
     const [desc, setDesc] = useState(editingItem?.description || '');
-    const [eventIds, setEventIds] = useState(editingItem?.eventIds || []);
+    const [eventIds, setEventIds] = useState<string[]>(editingItem?.eventIds || []);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -26,27 +31,26 @@ const TopicForm = ({ color }) => {
         }
     }, [name, editingItem, isTopicNameUnique]);
 
-    const toggleEvent = (id) => {
+    const toggleEvent = (id: string) => {
         setEventIds(current =>
             current.includes(id) ? current.filter(x => x !== id) : [...current, id]
         );
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim() || error) return;
-        const payload = {
-            name: name.trim(),
-            partitions,
-            description: desc.trim(),
-            eventIds
-        };
 
         if (editingItem) {
-            const ok = updateTopic(editingItem.id, payload);
+            const ok = updateTopic(editingItem.id, {
+                name: name.trim(),
+                partitions,
+                description: desc.trim(),
+                eventIds
+            });
             if (ok === false) return;
         } else {
-            const result = addTopic(payload.name, payload.partitions, payload.description, payload.eventIds);
+            const result = addTopic(name.trim(), partitions, desc.trim(), eventIds);
             if (!result) return;
         }
         closeModal();
@@ -108,4 +112,5 @@ const TopicForm = ({ color }) => {
         </form>
     );
 };
+
 export default TopicForm;

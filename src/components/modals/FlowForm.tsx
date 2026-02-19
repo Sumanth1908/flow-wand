@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
+import { DataFlow } from '../../types';
 
 const PALETTE = [
     { value: '#10b981', label: 'Emerald' }, { value: '#6366f1', label: 'Indigo' },
@@ -11,11 +12,15 @@ const PALETTE = [
     { value: '#06b6d4', label: 'Cyan' }, { value: '#84cc16', label: 'Lime' },
 ];
 
-const toggle = (arr, item) =>
+const toggle = (arr: string[], item: string) =>
     arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item];
 
-const FlowForm = ({ color }) => {
-    const editingItem = useStore(s => s.editingItem);
+interface FlowFormProps {
+    color: string;
+}
+
+const FlowForm: React.FC<FlowFormProps> = ({ color }) => {
+    const editingItem = useStore(s => s.editingItem) as DataFlow | null;
     const closeModal = useStore(s => s.closeModal);
     const flinkJobs = useStore(s => s.flinkJobs);
     const addFlow = useStore(s => s.addFlow);
@@ -23,16 +28,16 @@ const FlowForm = ({ color }) => {
 
     const [name, setName] = useState(editingItem?.name || '');
     const [desc, setDesc] = useState(editingItem?.description || '');
-    const [jobIds, setJobIds] = useState(editingItem?.jobIds || []);
+    const [jobIds, setJobIds] = useState<string[]>(editingItem?.jobIds || []);
     const [flowColor, setColor] = useState(editingItem?.color || '#10b981');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
         if (editingItem) {
             updateFlow(editingItem.id, { name: name.trim(), description: desc.trim(), jobIds, color: flowColor });
         } else {
-            addFlow(name.trim(), jobIds, desc.trim(), flowColor);
+            addFlow(name.trim(), flowColor, jobIds, desc.trim());
         }
         closeModal();
     };
@@ -52,7 +57,7 @@ const FlowForm = ({ color }) => {
                         <button
                             key={c.value} type="button"
                             className={`color-swatch ${flowColor === c.value ? 'color-swatch-selected' : ''}`}
-                            style={{ '--swatch-color': c.value }}
+                            style={{ '--swatch-color': c.value } as React.CSSProperties}
                             title={c.label}
                             onClick={() => setColor(c.value)}
                         >
@@ -78,7 +83,7 @@ const FlowForm = ({ color }) => {
                                 <button
                                     key={j.id} type="button"
                                     className={`chip ${jobIds.includes(j.id) ? 'selected' : ''}`}
-                                    style={jobIds.includes(j.id) ? { borderColor: flowColor, color: flowColor, background: `${flowColor}18` } : {}}
+                                    style={jobIds.includes(j.id) ? { borderColor: flowColor, color: flowColor, background: `${flowColor}18` } as React.CSSProperties : {}}
                                     onClick={() => setJobIds(toggle(jobIds, j.id))}
                                 >
                                     {jobIds.includes(j.id) && <Check size={12} />}
@@ -94,4 +99,5 @@ const FlowForm = ({ color }) => {
         </form>
     );
 };
+
 export default FlowForm;

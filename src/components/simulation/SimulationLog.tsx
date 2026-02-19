@@ -1,19 +1,19 @@
 /**
- * components/simulation/SimulationLog.jsx
+ * components/simulation/SimulationLog.tsx
  * Shows the live event-by-event log with icons, timestamps, and optional payload.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, Zap, ArrowRight, Clock, ChevronDown, ChevronRight } from 'lucide-react';
 
-const EntryIcon = ({ type }) => {
+const EntryIcon = ({ type }: { type: string }) => {
     if (type === 'topic') return <BookOpen size={12} />;
     if (type === 'job') return <Zap size={12} />;
     return <ArrowRight size={12} />;
 };
 
 /** Collapsible JSON block */
-const PayloadBlock = ({ label, data }) => {
+const PayloadBlock = ({ label, data }: { label: string, data: any }) => {
     const [open, setOpen] = useState(false);
     if (!data) return null;
     return (
@@ -35,8 +35,16 @@ const PayloadBlock = ({ label, data }) => {
     );
 };
 
-const SimulationLog = ({ log = [] }) => {
-    const endRef = useRef(null);
+interface LogEntry {
+    type: 'topic' | 'job' | 'info';
+    message: string;
+    time: string;
+    payload?: any;
+    outputPayload?: any;
+}
+
+const SimulationLog: React.FC<{ log: LogEntry[] }> = ({ log = [] }) => {
+    const endRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         endRef.current?.scrollIntoView({ behavior: 'smooth' });

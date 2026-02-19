@@ -1,6 +1,6 @@
 /**
- * store/useStore.js
- * Thin Zustand store composing domain action factories.
+ * store/useStore.ts
+ * Zustand store using TypeScript.
  */
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
@@ -10,25 +10,26 @@ import { buildFlinkJobActions } from '../hooks/useFlinkJobs';
 import { buildFlowActions } from '../hooks/useFlows';
 import { buildEventActions } from '../hooks/useEvents';
 import { buildSimulationActions, INITIAL_SIM } from '../hooks/useSimulation';
+import { StoreState, Topic, FlinkJob, DataFlow, EventType, Project } from '../types';
 
-const useStore = create((set, get) => {
+const useStore = create<StoreState>((set, get) => {
     const simActions = buildSimulationActions(get, set);
 
-    let _toastTimer = null;
-    const showToast = (message) => {
+    let _toastTimer: ReturnType<typeof setTimeout> | null = null;
+    const showToast = (message: string) => {
         if (_toastTimer) clearTimeout(_toastTimer);
         set({ toastMessage: message });
         _toastTimer = setTimeout(() => set({ toastMessage: null }), 3000);
     };
 
     const getTopics = () => get().topics;
-    const setTopics = (t) => set({ topics: t });
+    const setTopics = (t: Topic[]) => set({ topics: t });
     const getJobs = () => get().flinkJobs;
-    const setJobs = (j) => set({ flinkJobs: j });
+    const setJobs = (j: FlinkJob[]) => set({ flinkJobs: j });
     const getFlows = () => get().flows;
-    const setFlows = (f) => set({ flows: f });
+    const setFlows = (f: DataFlow[]) => set({ flows: f });
     const getEvents = () => get().events;
-    const setEvents = (e) => set({ events: e });
+    const setEvents = (e: EventType[]) => set({ events: e });
     const getProjId = () => get().activeProjectId;
 
     const topicActions = () => buildTopicActions(getProjId(), getTopics, setTopics, showToast);
@@ -60,7 +61,7 @@ const useStore = create((set, get) => {
         init: () => {
             const prefs = storage.getPrefs();
             const projects = storage.getProjects();
-            const theme = prefs.theme || 'dark';
+            const theme = (prefs.theme as 'dark' | 'light') || 'dark';
             document.documentElement.setAttribute('data-theme', theme);
             set({ projects, theme });
             const targetId = prefs.activeProjectId && projects.some(p => p.id === prefs.activeProjectId)
@@ -78,7 +79,7 @@ const useStore = create((set, get) => {
 
         // ── Projects ─────────────────────────────────────────────
         createProject: (name, description = '') => {
-            const project = { id: uuid(), name, description, createdAt: new Date().toISOString() };
+            const project: Project = { id: uuid(), name, description, createdAt: new Date().toISOString() };
             storage.createProject(project);
             storage.savePrefs({ ...storage.getPrefs(), activeProjectId: project.id });
             set(s => ({
@@ -139,6 +140,10 @@ const useStore = create((set, get) => {
             const id = get().activeProjectId;
             if (!id) return;
             const exported = storage.exportProject(id);
+            if (!exported.project) {
+                showToast('Export failed: Project not found');
+                return;
+            }
             _downloadJson(exported, `flowwand-${_slug(exported.project.name)}-${Date.now()}.json`);
             showToast('Project exported as JSON');
         },
@@ -147,14 +152,14 @@ const useStore = create((set, get) => {
             const reader = new FileReader();
             reader.onload = e => {
                 try {
-                    const bundle = JSON.parse(e.target.result);
+                    const bundle = JSON.parse(e.target?.result as string);
                     if (!bundle.project || !bundle.data) throw new Error('Invalid file format');
                     const project = storage.importProject(bundle);
                     set({ projects: storage.getProjects() });
                     get().switchProject(project.id);
                     showToast(`Imported "${project.name}" ✓`);
                     resolve(project);
-                } catch (err) {
+                } catch (err: any) {
                     showToast(`Import failed: ${err.message}`);
                     reject(err);
                 }
@@ -198,8 +203,8 @@ const useStore = create((set, get) => {
     };
 });
 
-function _slug(str) { return str.replace(/[^a-z0-9]/gi, '-').toLowerCase(); }
-function _downloadJson(data, filename) {
+function _slug(str: string) { return str.replace(/[^a-z0-9]/gi, '-').toLowerCase(); }
+function _downloadJson(data: any, filename: string) {
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     const a = Object.assign(document.createElement('a'), { href: url, download: filename });
     a.click();

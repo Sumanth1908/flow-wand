@@ -8,7 +8,7 @@ import useStore from './store/useStore';
 import './index.css';
 
 // ── Toast ──────────────────────────────────────────────────────
-const Toast = () => {
+const ToastElement: React.FC = () => {
     const msg = useStore(s => s.toastMessage);
     return (
         <AnimatePresence>
@@ -28,7 +28,7 @@ const Toast = () => {
 };
 
 // ── App ────────────────────────────────────────────────────────
-const App = () => {
+const App: React.FC = () => {
     const init = useStore(s => s.init);
     const activeProjectId = useStore(s => s.activeProjectId);
     const saveProject = useStore(s => s.saveProject);
@@ -37,7 +37,7 @@ const App = () => {
 
     // Cmd/Ctrl+S → save project
     useEffect(() => {
-        const onKey = (e) => {
+        const onKey = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 's') {
                 e.preventDefault();
                 if (activeProjectId) saveProject();
@@ -72,7 +72,7 @@ const App = () => {
             {activeProjectId && <SimulationDrawer />}
 
             <Modal />
-            <Toast />
+            <ToastElement />
         </div>
     );
 };

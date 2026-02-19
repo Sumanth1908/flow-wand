@@ -1,11 +1,19 @@
 import React, { memo } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { motion } from 'framer-motion';
 
-const FlinkJobNode = memo(({ data, selected }) => {
+type FlinkJobNodeData = {
+    label: string;
+    description?: string;
+    sourceCount?: number;
+    sinkCount?: number;
+    simulationState?: 'active' | 'visited' | null;
+    activeFlowColor?: string;
+};
+
+const FlinkJobNode = memo(({ data, selected }: NodeProps<Node<FlinkJobNodeData>>) => {
     const isActive = data.simulationState === 'active';
     const isVisited = data.simulationState === 'visited';
-    const isSimulating = isActive || isVisited;
 
     return (
         <motion.div
@@ -13,7 +21,7 @@ const FlinkJobNode = memo(({ data, selected }) => {
             style={data.activeFlowColor ? {
                 borderColor: data.activeFlowColor,
                 boxShadow: selected ? `0 0 0 2px ${data.activeFlowColor}` : 'none'
-            } : {}}
+            } as React.CSSProperties : {}}
             animate={
                 isActive
                     ? {
@@ -30,8 +38,8 @@ const FlinkJobNode = memo(({ data, selected }) => {
         >
             <Handle type="target" position={Position.Left} className="handle-target" />
 
-            <div className="node-header flink-header" style={data.activeFlowColor ? { borderBottomColor: data.activeFlowColor } : {}}>
-                <div className="node-icon flink-icon" style={data.activeFlowColor ? { color: data.activeFlowColor, background: `color-mix(in srgb, ${data.activeFlowColor} 15%, transparent)` } : {}}>
+            <div className="node-header flink-header" style={data.activeFlowColor ? { borderBottomColor: data.activeFlowColor } as React.CSSProperties : {}}>
+                <div className="node-icon flink-icon" style={data.activeFlowColor ? { color: data.activeFlowColor, background: `color-mix(in srgb, ${data.activeFlowColor} 15%, transparent)` } as React.CSSProperties : {}}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                     </svg>

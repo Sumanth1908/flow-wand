@@ -1,32 +1,36 @@
 /**
- * hooks/useEvents.js — Event type CRUD actions
- * Events are named schemas that get tagged onto Topics.
+ * hooks/useEvents.ts
  */
 import { v4 as uuid } from 'uuid';
 import * as storage from '../lib/storage';
+import { EventType, Topic } from '../types';
 
-export function buildEventActions(projectId, getEvents, setEvents, getTopics, setTopics) {
-    const addEvent = (name, description = '', schema = '{}') => {
-        if (!projectId) return null;
-        const event = {
+export function buildEventActions(
+    projectId: string | null,
+    getEvents: () => EventType[],
+    setEvents: (events: EventType[]) => void,
+    getTopics: () => Topic[],
+    setTopics: (topics: Topic[]) => void
+) {
+    const addEvent = (name: string, description = '', schema = '{}') => {
+        if (!projectId) return;
+        const event: EventType = {
             id: uuid(),
             name,
             description,
             schema,
-            createdAt: new Date().toISOString(),
         };
         storage.createEvent(projectId, event);
         setEvents([...getEvents(), event]);
-        return event;
     };
 
-    const updateEvent = (id, patch) => {
+    const updateEvent = (id: string, patch: Partial<EventType>) => {
         if (!projectId) return;
         storage.updateEvent(projectId, id, patch);
         setEvents(getEvents().map(e => e.id === id ? { ...e, ...patch } : e));
     };
 
-    const deleteEvent = (id) => {
+    const deleteEvent = (id: string) => {
         if (!projectId) return;
         storage.deleteEvent(projectId, id);
         setEvents(getEvents().filter(e => e.id !== id));

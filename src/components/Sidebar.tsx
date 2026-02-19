@@ -9,7 +9,6 @@ import {
     Trash2,
     Edit3,
     Play,
-    ChevronRight,
     ChevronDown,
     Layers,
     Search,
@@ -19,24 +18,30 @@ import {
     Upload,
     FolderOpen,
     Save,
-    Settings,
     Radio,
     PanelLeftClose,
     PanelLeftOpen,
 } from 'lucide-react';
 
-const tabs = [
+interface TabItem {
+    id: 'topics' | 'jobs' | 'flows' | 'events';
+    label: string;
+    icon: any;
+    color: string;
+}
+
+const tabs: TabItem[] = [
     { id: 'topics', label: 'Topics', icon: BookOpen, color: '#6366f1' },
     { id: 'jobs', label: 'Jobs', icon: Zap, color: '#f59e0b' },
     { id: 'flows', label: 'Flows', icon: GitBranch, color: '#10b981' },
     { id: 'events', label: 'Events', icon: Radio, color: '#ec4899' },
 ];
 
-const formatTimestamp = (isoString) => {
+const formatTimestamp = (isoString: string | null) => {
     if (!isoString) return '';
     const date = new Date(isoString);
     const now = new Date();
-    const diffMs = now - date;
+    const diffMs = now.getTime() - date.getTime();
     const diffSec = Math.floor(diffMs / 1000);
     const diffMin = Math.floor(diffSec / 60);
     const diffHr = Math.floor(diffMin / 60);
@@ -48,7 +53,7 @@ const formatTimestamp = (isoString) => {
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-const Sidebar = () => {
+const Sidebar: React.FC = () => {
     const {
         sidebarTab,
         setSidebarTab,
@@ -81,7 +86,7 @@ const Sidebar = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
-    const fileInputRef = useRef(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const activeProject = projects.find((p) => p.id === activeProjectId);
 
@@ -98,14 +103,14 @@ const Sidebar = () => {
         e.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const handleSimulate = (topicId) => {
+    const handleSimulate = (topicId: string) => {
         if (!simulation.active) {
             startSimulation(topicId);
         }
     };
 
-    const handleImport = (e) => {
-        const file = e.target.files[0];
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
         if (file) importProject(file);
         e.target.value = '';
     };
@@ -267,7 +272,7 @@ const Sidebar = () => {
                                 key={tab.id}
                                 className={`sidebar-tab ${sidebarTab === tab.id ? 'active' : ''}`}
                                 onClick={() => setSidebarTab(tab.id)}
-                                style={{ '--tab-color': tab.color }}
+                                style={{ '--tab-color': tab.color } as React.CSSProperties}
                             >
                                 <tab.icon size={15} />
                                 <span>{tab.label}</span>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
+import { EventType } from '../../types';
 
 const DEFAULT_SCHEMA = JSON.stringify({
     type: 'object',
@@ -13,8 +14,12 @@ const DEFAULT_SCHEMA = JSON.stringify({
     required: ['id', 'timestamp'],
 }, null, 2);
 
-const EventForm = ({ color }) => {
-    const editingItem = useStore(s => s.editingItem);
+interface EventFormProps {
+    color: string;
+}
+
+const EventForm: React.FC<EventFormProps> = ({ color }) => {
+    const editingItem = useStore(s => s.editingItem) as EventType | null;
     const closeModal = useStore(s => s.closeModal);
     const addEvent = useStore(s => s.addEvent);
     const updateEvent = useStore(s => s.updateEvent);
@@ -24,18 +29,18 @@ const EventForm = ({ color }) => {
     const [schema, setSchema] = useState(editingItem?.schema || DEFAULT_SCHEMA);
     const [schemaError, setSchemaError] = useState('');
 
-    const validateSchema = (val) => {
+    const validateSchema = (val: string) => {
         if (!val.trim()) { setSchemaError(''); return true; }
         try { JSON.parse(val); setSchemaError(''); return true; }
-        catch (e) { setSchemaError(e.message); return false; }
+        catch (e: any) { setSchemaError(e.message); return false; }
     };
 
-    const handleSchemaChange = (e) => {
+    const handleSchemaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setSchema(e.target.value);
         validateSchema(e.target.value);
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim() || !validateSchema(schema)) return;
         if (editingItem) {

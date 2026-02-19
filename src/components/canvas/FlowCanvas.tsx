@@ -1,28 +1,24 @@
 /**
- * components/canvas/FlowCanvas.jsx
- * ─────────────────────────────────────────────────────────────
- * Dumb canvas — derives nodes/edges from the store via
- * buildGraph(), then renders them.  All layout logic lives in
- * lib/buildGraph.js.
+ * components/canvas/FlowCanvas.tsx
  */
 import React, { useMemo, useEffect, useState } from 'react';
 import {
     ReactFlow, Controls, MiniMap, Background,
     BackgroundVariant, useNodesState, useEdgesState, Panel,
+    Node, Edge, FitViewOptions, ProOptions,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import TopicNode from '../nodes/TopicNode';
 import FlinkJobNode from '../nodes/FlinkJobNode';
 import AnimatedEdge from '../edges/AnimatedEdge';
-import EventDispatcher from '../simulation/EventDispatcher';
 import useStore from '../../store/useStore';
 import { buildGraph } from '../../lib/buildGraph';
 
 const nodeTypes = { topic: TopicNode, flinkJob: FlinkJobNode };
 const edgeTypes = { animated: AnimatedEdge };
 
-const FlowCanvas = () => {
+const FlowCanvas: React.FC = () => {
     const topics = useStore(s => s.topics);
     const flinkJobs = useStore(s => s.flinkJobs);
     const flows = useStore(s => s.flows);
@@ -30,28 +26,27 @@ const FlowCanvas = () => {
     const activeFlowId = useStore(s => s.activeFlowId);
     const simulation = useStore(s => s.simulation);
 
-    const [dispatcherOpen, setDispatcherOpen] = useState(false);
-
-    // Derive nodes/edges – memoized on relevant state
     const { nodes: initialNodes, edges: initialEdges } = useMemo(
         () => buildGraph({ topics, flinkJobs, flows, events, activeFlowId, simulation }),
         [topics, flinkJobs, flows, events, activeFlowId, simulation]
     );
 
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes as Node[]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges as Edge[]);
     const [isLocked, setIsLocked] = useState(false);
 
-    // Sync when data changes, preserving user-dragged positions
     useEffect(() => {
         setNodes(current => {
             const posMap = new Map(current.map(n => [n.id, n.position]));
-            return initialNodes.map(n => ({ ...n, position: posMap.get(n.id) ?? n.position }));
+            return (initialNodes as Node[]).map(n => ({ ...n, position: posMap.get(n.id) ?? n.position }));
         });
-        setEdges(initialEdges);
+        setEdges(initialEdges as Edge[]);
     }, [initialNodes, initialEdges, setNodes, setEdges]);
 
     const activeFlow = activeFlowId ? flows.find(f => f.id === activeFlowId) : null;
+
+    const fitViewOptions: FitViewOptions = { padding: 0.3 };
+    const proOptions: ProOptions = { hideAttribution: true };
 
     return (
         <div className="flow-canvas">
@@ -60,18 +55,17 @@ const FlowCanvas = () => {
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
-                nodeTypes={nodeTypes}
-                edgeTypes={edgeTypes}
+                nodeTypes={nodeTypes as any}
+                edgeTypes={edgeTypes as any}
                 fitView
-                fitViewOptions={{ padding: 0.3 }}
-                defaultEdgeOptions={{ type: 'animated', animated: false }}
-                proOptions={{ hideAttribution: true }}
+                fitViewOptions={fitViewOptions}
+                defaultEdgeOptions={{ type: 'animated' }}
+                proOptions={proOptions}
                 nodesDraggable={!isLocked}
                 nodesConnectable={!isLocked}
                 elementsSelectable={!isLocked}
                 className="react-flow-dark"
             >
-                {/* Controls bottom-left; showInteractive=true adds the native lock button */}
                 <Controls
                     position="bottom-left"
                     showInteractive
@@ -89,7 +83,6 @@ const FlowCanvas = () => {
 
                 <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(148,163,184,0.08)" />
 
-                {/* Active-flow badge */}
                 {activeFlow && (
                     <Panel position="top-left" className="flow-badge-panel">
                         <div
@@ -98,19 +91,17 @@ const FlowCanvas = () => {
                                 background: `color-mix(in srgb, ${activeFlow.color || '#10b981'} 12%, var(--bg-secondary))`,
                                 borderColor: `color-mix(in srgb, ${activeFlow.color || '#10b981'} 35%, transparent)`,
                                 color: activeFlow.color || '#10b981',
-                            }}
+                            } as React.CSSProperties}
                         >
                             <span
                                 className="flow-badge-dot"
-                                style={{ background: activeFlow.color || '#10b981', boxShadow: `0 0 8px ${activeFlow.color || '#10b981'}88` }}
+                                style={{ background: activeFlow.color || '#10b981', boxShadow: `0 0 8px ${activeFlow.color || '#10b981'}88` } as React.CSSProperties}
                             />
                             Viewing: {activeFlow.name}
                         </div>
                     </Panel>
                 )}
 
-
-                {/* Empty canvas prompt */}
                 {nodes.length === 0 && (
                     <Panel position="top-left" className="empty-canvas-panel">
                         <div className="empty-canvas">

@@ -2,12 +2,17 @@ import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
+import { FlinkJob } from '../../types';
 
-const toggle = (arr, item) =>
+const toggle = (arr: string[], item: string) =>
     arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item];
 
-const JobForm = ({ color }) => {
-    const editingItem = useStore(s => s.editingItem);
+interface JobFormProps {
+    color: string;
+}
+
+const JobForm: React.FC<JobFormProps> = ({ color }) => {
+    const editingItem = useStore(s => s.editingItem) as FlinkJob | null;
     const closeModal = useStore(s => s.closeModal);
     const topics = useStore(s => s.topics);
     const addFlinkJob = useStore(s => s.addFlinkJob);
@@ -15,21 +20,21 @@ const JobForm = ({ color }) => {
 
     const [name, setName] = useState(editingItem?.name || '');
     const [desc, setDesc] = useState(editingItem?.description || '');
-    const [source, setSource] = useState(editingItem?.sourceTopics || []);
-    const [sink, setSink] = useState(editingItem?.sinkTopics || []);
+    const [source, setSource] = useState<string[]>(editingItem?.sourceTopics || []);
+    const [sink, setSink] = useState<string[]>(editingItem?.sinkTopics || []);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
         if (editingItem) {
             updateFlinkJob(editingItem.id, { name: name.trim(), description: desc.trim(), sourceTopics: source, sinkTopics: sink });
         } else {
-            addFlinkJob(name.trim(), source, sink, desc.trim());
+            addFlinkJob(name.trim(), desc.trim(), source, sink);
         }
         closeModal();
     };
 
-    const ChipList = ({ selected, onToggle, label }) => (
+    const ChipList = ({ selected, onToggle, label }: { selected: string[], onToggle: (id: string) => void, label: string }) => (
         <div className="form-group">
             <label>{label}</label>
             {topics.length === 0
@@ -73,4 +78,5 @@ const JobForm = ({ color }) => {
         </form>
     );
 };
+
 export default JobForm;

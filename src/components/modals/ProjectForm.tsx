@@ -2,14 +2,18 @@ import React, { useState } from 'react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
 
-const ProjectForm = ({ color }) => {
+interface ProjectFormProps {
+    color: string;
+}
+
+const ProjectForm: React.FC<ProjectFormProps> = ({ color }) => {
     const closeModal = useStore(s => s.closeModal);
     const createProject = useStore(s => s.createProject);
 
     const [name, setName] = useState('');
     const [desc, setDesc] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
         createProject(name.trim(), desc.trim());

@@ -7,12 +7,6 @@ import {
     Square,
     BookOpen,
     Zap,
-    ChevronRight,
-    ChevronLeft,
-    PanelRightClose,
-    PanelRightOpen,
-    Play,
-    Plus,
     X,
     Send
 } from 'lucide-react';
@@ -20,7 +14,7 @@ import useStore from '../../store/useStore';
 import SimulationLog from './SimulationLog';
 import EventDispatcher from './EventDispatcher';
 
-const SimulationDrawer = () => {
+const SimulationDrawer: React.FC = () => {
     const simulation = useStore(s => s.simulation);
     const advanceSimulation = useStore(s => s.advanceSimulation);
     const stopSimulation = useStore(s => s.stopSimulation);
@@ -42,16 +36,24 @@ const SimulationDrawer = () => {
     const advanceRef = useRef(advanceSimulation);
     useEffect(() => { advanceRef.current = advanceSimulation; }, [advanceSimulation]);
 
-    const intervalRef = useRef(null);
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
     useEffect(() => {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
         if (simulation.active) {
             intervalRef.current = setInterval(() => {
                 const hasMore = advanceRef.current();
-                if (!hasMore) { clearInterval(intervalRef.current); intervalRef.current = null; }
+                if (!hasMore && intervalRef.current) {
+                    clearInterval(intervalRef.current);
+                    intervalRef.current = null;
+                }
             }, simulation.speed);
         }
-        return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; } };
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
+        };
     }, [simulation.active, simulation.speed]);
 
     const hasLog = simulation.eventLog?.length > 0;
@@ -98,12 +100,12 @@ const SimulationDrawer = () => {
                         </button>
                     </div>
 
-                    {/* View Switcher Tabs (Only if not active, or just always show them for flexibility) */}
+                    {/* View Switcher Tabs */}
                     <div style={{ display: 'flex', padding: '0 16px', gap: '4px', borderBottom: '1px solid var(--border-subtle)' }}>
                         <button
                             className={`sidebar-tab ${view === 'fire' ? 'active' : ''}`}
                             onClick={() => setView('fire')}
-                            style={{ flex: 1, '--tab-color': 'var(--emerald)' }}
+                            style={{ flex: 1, '--tab-color': 'var(--emerald)' } as React.CSSProperties}
                         >
                             <Send size={15} />
                             <span>Fire Event</span>
@@ -111,14 +113,14 @@ const SimulationDrawer = () => {
                         <button
                             className={`sidebar-tab ${view === 'log' ? 'active' : ''}`}
                             onClick={() => setView('log')}
-                            style={{ flex: 1, '--tab-color': 'var(--indigo)' }}
+                            style={{ flex: 1, '--tab-color': 'var(--indigo)' } as React.CSSProperties}
                         >
                             <Activity size={15} />
                             <span>Live Log</span>
                         </button>
                     </div>
 
-                    {/* Controls Row (Persistent while drawer is open) */}
+                    {/* Controls Row */}
                     {(simulation.active || hasLog) && (
                         <div className="sim-drawer-controls-row">
                             <div className="speed-control">
@@ -190,7 +192,7 @@ const SimulationDrawer = () => {
                                         <SimulationLog log={simulation.eventLog} />
                                     ) : (
                                         <div className="empty-state" style={{ padding: '60px 20px', textAlign: 'center' }}>
-                                            <Activity size={32} strokeWidth={1} style={{ opacity: 0.2, marginBottom: '16px' }} />
+                                            <Activity size={32} strokeWidth={1} style={{ opacity: 0.2, marginBottom: '16px' } as React.CSSProperties} />
                                             <p style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
                                                 System Idle. Switch to <b>Fire Event</b> to inject data into the mesh.
                                             </p>

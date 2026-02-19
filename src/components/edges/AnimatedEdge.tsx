@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
-import { BaseEdge, getBezierPath, EdgeLabelRenderer } from '@xyflow/react';
+import { BaseEdge, getBezierPath, EdgeLabelRenderer, EdgeProps } from '@xyflow/react';
 
-const AnimatedEdge = ({
+type AnimatedEdgeData = {
+    simulationState?: 'active' | null;
+    activeFlowColor?: string;
+    speed?: number;
+    label?: string;
+};
+
+const AnimatedEdge: React.FC<EdgeProps> = ({
     id,
     sourceX,
     sourceY,
@@ -23,8 +30,9 @@ const AnimatedEdge = ({
     });
 
     const [isHovered, setIsHovered] = useState(false);
-    const isActive = data?.simulationState === 'active';
-    const flowColor = data?.activeFlowColor || '#6366f1';
+    const edgeData = data as AnimatedEdgeData | undefined;
+    const isActive = edgeData?.simulationState === 'active';
+    const flowColor = edgeData?.activeFlowColor || '#6366f1';
 
     return (
         <>
@@ -33,7 +41,7 @@ const AnimatedEdge = ({
                 markerEnd={markerEnd}
                 style={{
                     ...style,
-                    stroke: isActive ? flowColor : (isHovered ? 'rgba(148, 163, 184, 0.8)' : (data?.activeFlowColor || 'rgba(148, 163, 184, 0.4)')),
+                    stroke: isActive ? flowColor : (isHovered ? 'rgba(148, 163, 184, 0.8)' : (edgeData?.activeFlowColor || 'rgba(148, 163, 184, 0.4)')),
                     strokeWidth: isActive ? 3 : (isHovered ? 2.5 : 1.5),
                     filter: isActive ? `drop-shadow(0 0 6px ${flowColor})` : 'none',
                     transition: 'stroke 0.3s, stroke-width 0.3s, filter 0.3s',
@@ -55,14 +63,14 @@ const AnimatedEdge = ({
                 <g pointerEvents="none">
                     <circle r="5" fill={flowColor} filter={`drop-shadow(0 0 6px ${flowColor})`}>
                         <animateMotion
-                            dur={`${data?.speed || 1}s`}
+                            dur={`${edgeData?.speed || 1}s`}
                             repeatCount="indefinite"
                             path={edgePath}
                         />
                     </circle>
                     <circle r="3" fill="#ffffff">
                         <animateMotion
-                            dur={`${data?.speed || 1}s`}
+                            dur={`${edgeData?.speed || 1}s`}
                             repeatCount="indefinite"
                             path={edgePath}
                         />
@@ -70,7 +78,7 @@ const AnimatedEdge = ({
                     {/* Trail particles */}
                     <circle r="4" fill={flowColor} opacity="0.5">
                         <animateMotion
-                            dur={`${data?.speed || 1}s`}
+                            dur={`${edgeData?.speed || 1}s`}
                             repeatCount="indefinite"
                             path={edgePath}
                             begin="0.15s"
@@ -78,7 +86,7 @@ const AnimatedEdge = ({
                     </circle>
                     <circle r="2.5" fill={flowColor} opacity="0.3">
                         <animateMotion
-                            dur={`${data?.speed || 1}s`}
+                            dur={`${edgeData?.speed || 1}s`}
                             repeatCount="indefinite"
                             path={edgePath}
                             begin="0.3s"
@@ -87,7 +95,7 @@ const AnimatedEdge = ({
                 </g>
             )}
 
-            {(data?.label && isHovered) && (
+            {(edgeData?.label && isHovered) && (
                 <EdgeLabelRenderer>
                     <div
                         style={{
@@ -108,7 +116,7 @@ const AnimatedEdge = ({
                             boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                         }}
                     >
-                        {data.label}
+                        {edgeData.label}
                     </div>
                 </EdgeLabelRenderer>
             )}

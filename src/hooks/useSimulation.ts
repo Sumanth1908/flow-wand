@@ -1,21 +1,12 @@
 /**
- * hooks/useSimulation.js
- * ─────────────────────────────────────────────────────────────
- * BFS-based event simulation engine.
- *
- * Why module-level refs instead of Zustand state for `steps`:
- *   Storing the full steps array in Zustand means every call to
- *   advanceSimulation triggers a full re-render tree because the
- *   array reference changes.  Keeping steps in module scope lets
- *   us update only the minimal cursor + visited-sets in state.
+ * hooks/useSimulation.ts
  */
+import { SimulationStep, SimulationState, Topic, FlinkJob, StoreState } from '../types';
 
-// Steps and total live outside Zustand so interval ticks don't
-// cause unnecessary re-renders of the entire component tree.
-let _steps = [];
+let _steps: SimulationStep[] = [];
 let _total = 0;
 
-const INITIAL_SIM = {
+const INITIAL_SIM: SimulationState = {
     active: false,
     currentTopicId: null,
     visitedTopicIds: [],
@@ -25,36 +16,30 @@ const INITIAL_SIM = {
     speed: 1000,
     totalSteps: 0,
     currentStep: 0,
-    payload: null,  // original payload fired by user
+    steps: [],
 };
 
-/**
- * Build BFS step list starting from a source topic through
- * connected Flink jobs and their sink topics.
- *
- * @param {string}   startTopicId
- * @param {object[]} topics
- * @param {object[]} flinkJobs
- * @returns {{ steps: object[], log: object[] }}
- */
-function buildSimSteps(startTopicId, topics, flinkJobs, payload = null) {
-    const steps = [];
-    const log = [];
+function buildSimSteps(startTopicId: string, topics: Topic[], flinkJobs: FlinkJob[], payload: any = null) {
+    const steps: SimulationStep[] = [];
+    const log: any[] = [];
     const queue = [{ topicId: startTopicId, currentPayload: payload }];
-    const seenTopics = new Set();
-    const visitedJobs = new Set();
+    const seenTopics = new Set<string>();
+    const visitedJobs = new Set<string>();
 
     const ts = () => new Date().toISOString();
 
     while (queue.length > 0) {
-        const { topicId, currentPayload } = queue.shift();
+        const item = queue.shift();
+        if (!item) continue;
+        const { topicId, currentPayload } = item;
+
         if (seenTopics.has(topicId)) continue;
         seenTopics.add(topicId);
 
         const topic = topics.find(t => t.id === topicId);
         if (!topic) continue;
 
-        steps.push({ type: 'topic', id: topicId, name: topic.name, payload: currentPayload });
+        steps.push({ type: 'topic', id: topicId, message: `📨 Event arrives at topic: ${topic.name}`, payload: currentPayload });
         log.push({
             time: ts(),
             type: 'topic',
@@ -68,16 +53,13 @@ function buildSimSteps(startTopicId, topics, flinkJobs, payload = null) {
             if (visitedJobs.has(job.id)) continue;
             visitedJobs.add(job.id);
 
-            // Simulate a passthrough transform — job outputs same shape with metadata added
             const outputPayload = currentPayload
                 ? { ...currentPayload, _processedBy: job.name, _processedAt: ts() }
                 : null;
 
-            // Edge: topic → job
-            steps.push({ type: 'edge', from: topicId, to: job.id });
+            steps.push({ type: 'edge', from: topicId, to: job.id, message: '' });
+            steps.push({ type: 'job', id: job.id, message: `⚡ Flink job processes: ${job.name}`, payload: currentPayload, outputPayload });
 
-            // Job processes
-            steps.push({ type: 'job', id: job.id, name: job.name, payload: currentPayload, outputPayload });
             log.push({
                 time: ts(),
                 type: 'job',
@@ -87,9 +69,8 @@ function buildSimSteps(startTopicId, topics, flinkJobs, payload = null) {
                 outputPayload,
             });
 
-            // Edges: job → sink topics
             for (const sinkId of job.sinkTopics) {
-                steps.push({ type: 'edge', from: job.id, to: sinkId });
+                steps.push({ type: 'edge', from: job.id, to: sinkId, message: '' });
                 const sinkTopic = topics.find(t => t.id === sinkId);
                 if (sinkTopic) {
                     log.push({
@@ -108,16 +89,13 @@ function buildSimSteps(startTopicId, topics, flinkJobs, payload = null) {
     return { steps, log };
 }
 
-/**
- * Factory that returns simulation actions to be spread into the Zustand store.
- *
- * @param {function} get  – Zustand get
- * @param {function} set  – Zustand set
- */
-export function buildSimulationActions(get, set) {
+export function buildSimulationActions(
+    get: () => StoreState,
+    set: (partial: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void
+) {
     const getSim = () => get().simulation;
 
-    const startSimulation = (startTopicId, payload = null) => {
+    const startSimulation = (startTopicId: string, payload: any = null) => {
         const { topics, flinkJobs } = get();
         const { steps, log } = buildSimSteps(startTopicId, topics, flinkJobs, payload);
 
@@ -130,7 +108,7 @@ export function buildSimulationActions(get, set) {
         _total = steps.length;
 
         set({
-            rightSidebarOpen: true, // Auto-open the drawer
+            rightSidebarOpen: true,
             simulation: {
                 ...INITIAL_SIM,
                 active: true,
@@ -138,16 +116,11 @@ export function buildSimulationActions(get, set) {
                 speed: getSim().speed,
                 totalSteps: _total,
                 currentStep: 0,
-                payload,
-                previewLog: log,
+                eventLog: [], // Start fresh
             },
         });
     };
 
-    /**
-     * Advance one step.  Returns true if more steps remain.
-     * Called on each interval tick from SimulationPanel.
-     */
     const advanceSimulation = () => {
         const sim = getSim();
         if (!sim.active || sim.currentStep >= _total) {
@@ -156,31 +129,33 @@ export function buildSimulationActions(get, set) {
         }
 
         const step = _steps[sim.currentStep];
-        const updates = { currentStep: sim.currentStep + 1 };
+        const updates: Partial<SimulationState> = { currentStep: sim.currentStep + 1 };
 
-        if (step.type === 'topic') {
+        if (step.type === 'topic' && step.id) {
             updates.currentTopicId = step.id;
             updates.visitedTopicIds = [...sim.visitedTopicIds, step.id];
             updates.eventLog = [
                 ...sim.eventLog,
                 {
-                    time: new Date().toISOString(), type: 'topic', id: step.id,
-                    message: `📨 Event arrives at topic: ${step.name}`,
+                    time: new Date().toISOString(),
+                    type: 'topic',
+                    message: step.message,
                     payload: step.payload ?? null,
                 },
             ];
-        } else if (step.type === 'job') {
+        } else if (step.type === 'job' && step.id) {
             updates.visitedJobIds = [...sim.visitedJobIds, step.id];
             updates.eventLog = [
                 ...sim.eventLog,
                 {
-                    time: new Date().toISOString(), type: 'job', id: step.id,
-                    message: `⚡ Flink job processes: ${step.name}`,
+                    time: new Date().toISOString(),
+                    type: 'job',
+                    message: step.message,
                     payload: step.payload ?? null,
                     outputPayload: step.outputPayload ?? null,
                 },
             ];
-        } else if (step.type === 'edge') {
+        } else if (step.type === 'edge' && step.from && step.to) {
             const edgeId = `${step.from}->${step.to}`;
             updates.activeEdgeIds = [...sim.activeEdgeIds, edgeId];
         }
@@ -189,10 +164,6 @@ export function buildSimulationActions(get, set) {
         return sim.currentStep + 1 < _total;
     };
 
-    /**
-     * Stop: freeze the state, keep the event log so SimulationPanel
-     * can show the COMPLETE badge.
-     */
     const stopSimulation = () => {
         const sim = getSim();
         _steps = [];
@@ -201,12 +172,11 @@ export function buildSimulationActions(get, set) {
             simulation: {
                 ...INITIAL_SIM,
                 speed: sim.speed,
-                eventLog: sim.eventLog,  // keep log — shows COMPLETE state
+                eventLog: sim.eventLog,
             },
         });
     };
 
-    /** Clear: wipe everything including log */
     const clearSimulation = () => {
         _steps = [];
         _total = 0;
@@ -214,7 +184,7 @@ export function buildSimulationActions(get, set) {
         set({ simulation: { ...INITIAL_SIM, speed } });
     };
 
-    const setSimulationSpeed = (speed) =>
+    const setSimulationSpeed = (speed: number) =>
         set(s => ({ simulation: { ...s.simulation, speed } }));
 
     return {
