@@ -152,7 +152,7 @@ const Sidebar: React.FC = () => {
                 <div className="sidebar-header-top">
                     <div className="logo-container">
                         <div style={{ width: 36, height: 36, borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <img src="/logo.png" alt="FlowWand" style={{ width: '125%', height: '125%', objectFit: 'cover' }} />
+                            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="FlowWand" style={{ width: '125%', height: '125%', objectFit: 'cover' }} />
                         </div>
                         <div className="logo-text">
                             <h1>{APP_CONFIG.name}</h1>
