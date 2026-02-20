@@ -7,8 +7,8 @@ import { motion } from 'framer-motion';
 import { BookOpen, Zap, ArrowRight, Clock, ChevronDown, ChevronRight } from 'lucide-react';
 
 const EntryIcon = ({ type }: { type: string }) => {
-    if (type === 'topic') return <BookOpen size={12} />;
-    if (type === 'job') return <Zap size={12} />;
+    if (type === 'stream') return <BookOpen size={12} />;
+    if (type === 'consumer') return <Zap size={12} />;
     return <ArrowRight size={12} />;
 };
 
@@ -36,7 +36,7 @@ const PayloadBlock = ({ label, data }: { label: string, data: any }) => {
 };
 
 interface LogEntry {
-    type: 'topic' | 'job' | 'info';
+    type: 'stream' | 'consumer' | 'info';
     message: string;
     time: string;
     payload?: any;
@@ -74,12 +74,12 @@ const SimulationLog: React.FC<{ log: LogEntry[] }> = ({ log = [] }) => {
                         </div>
                         <div className="event-content">
                             <span className="event-message">{entry.message}</span>
-                            {/* Input payload for topic entries */}
-                            {entry.type === 'topic' && entry.payload && (
+                            {/* Input payload for stream entries */}
+                            {entry.type === 'stream' && entry.payload && (
                                 <PayloadBlock label="payload" data={entry.payload} />
                             )}
-                            {/* Input + output payload for job entries */}
-                            {entry.type === 'job' && (
+                            {/* Input + output payload for consumer entries */}
+                            {entry.type === 'consumer' && (
                                 <>
                                     {entry.payload && <PayloadBlock label="input" data={entry.payload} />}
                                     {entry.outputPayload && <PayloadBlock label="output" data={entry.outputPayload} />}

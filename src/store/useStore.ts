@@ -5,12 +5,13 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
 import * as storage from '../lib/storage';
-import { buildTopicActions } from '../hooks/useTopics';
-import { buildFlinkJobActions } from '../hooks/useFlinkJobs';
+import { buildEventStreamActions } from '../hooks/useEventStreams';
+import { buildConsumerActions } from '../hooks/useConsumers';
 import { buildFlowActions } from '../hooks/useFlows';
 import { buildEventActions } from '../hooks/useEvents';
 import { buildSimulationActions, INITIAL_SIM } from '../hooks/useSimulation';
-import { StoreState, Topic, FlinkJob, DataFlow, EventType, Project } from '../types';
+import { StoreState, EventStream, Consumer, DataFlow, EventType, Project, EdgeStyle, EdgeShape } from '../types';
+import { DEMO_DATA } from '../lib/demoData';
 
 const useStore = create<StoreState>((set, get) => {
     const simActions = buildSimulationActions(get, set);
@@ -22,33 +23,33 @@ const useStore = create<StoreState>((set, get) => {
         _toastTimer = setTimeout(() => set({ toastMessage: null }), 3000);
     };
 
-    const getTopics = () => get().topics;
-    const setTopics = (t: Topic[]) => set({ topics: t });
-    const getJobs = () => get().flinkJobs;
-    const setJobs = (j: FlinkJob[]) => set({ flinkJobs: j });
+    const getStreams = () => get().streams;
+    const setStreams = (s: EventStream[]) => set({ streams: s });
+    const getConsumers = () => get().consumers;
+    const setConsumers = (c: Consumer[]) => set({ consumers: c });
     const getFlows = () => get().flows;
     const setFlows = (f: DataFlow[]) => set({ flows: f });
     const getEvents = () => get().events;
     const setEvents = (e: EventType[]) => set({ events: e });
     const getProjId = () => get().activeProjectId;
 
-    const topicActions = () => buildTopicActions(getProjId(), getTopics, setTopics, showToast);
-    const jobActions = () => buildFlinkJobActions(getProjId(), getJobs, setJobs, getFlows, setFlows);
+    const streamActions = () => buildEventStreamActions(getProjId(), getStreams, setStreams, showToast);
+    const consumerActions = () => buildConsumerActions(getProjId(), getConsumers, setConsumers, getFlows, setFlows);
     const flowActions = () => buildFlowActions(getProjId(), getFlows, setFlows);
-    const eventActions = () => buildEventActions(getProjId(), getEvents, setEvents, getTopics, setTopics);
+    const eventActions = () => buildEventActions(getProjId(), getEvents, setEvents, getConsumers, setConsumers);
 
     return {
         // ── Initial state ────────────────────────────────────────
         projects: [],
         activeProjectId: null,
-        topics: [],
-        flinkJobs: [],
+        streams: [],
+        consumers: [],
         flows: [],
         events: [],
         activeFlowId: null,
         theme: 'dark',
         simulation: INITIAL_SIM,
-        sidebarTab: 'topics',
+        sidebarTab: 'streams',
         leftSidebarOpen: true,
         rightSidebarOpen: false,
         selectedNodeId: null,
@@ -56,14 +57,19 @@ const useStore = create<StoreState>((set, get) => {
         editingItem: null,
         toastMessage: null,
         lastSavedAt: null,
+        traceMode: false,
+        edgeStyle: 'solid',
+        edgeShape: 'circle',
 
         // ── App init ─────────────────────────────────────────────
         init: () => {
             const prefs = storage.getPrefs();
             const projects = storage.getProjects();
             const theme = (prefs.theme as 'dark' | 'light') || 'dark';
+            const edgeStyle = (prefs.edgeStyle as EdgeStyle) || 'solid';
+            const edgeShape = (prefs.edgeShape as EdgeShape) || 'circle';
             document.documentElement.setAttribute('data-theme', theme);
-            set({ projects, theme });
+            set({ projects, theme, edgeStyle, edgeShape });
             const targetId = prefs.activeProjectId && projects.some(p => p.id === prefs.activeProjectId)
                 ? prefs.activeProjectId : projects[0]?.id;
             if (targetId) get().switchProject(targetId);
@@ -85,7 +91,7 @@ const useStore = create<StoreState>((set, get) => {
             set(s => ({
                 projects: [...s.projects, project],
                 activeProjectId: project.id,
-                topics: [], flinkJobs: [], flows: [], events: [],
+                streams: [], consumers: [], flows: [], events: [],
                 activeFlowId: null, lastSavedAt: null,
             }));
             return project;
@@ -105,7 +111,7 @@ const useStore = create<StoreState>((set, get) => {
                     get().switchProject(remaining[0].id);
                 } else {
                     storage.savePrefs({ ...storage.getPrefs(), activeProjectId: null });
-                    set({ activeProjectId: null, topics: [], flinkJobs: [], flows: [], events: [], activeFlowId: null });
+                    set({ activeProjectId: null, streams: [], consumers: [], flows: [], events: [], activeFlowId: null });
                 }
             }
         },
@@ -116,8 +122,8 @@ const useStore = create<StoreState>((set, get) => {
             storage.savePrefs({ ...storage.getPrefs(), activeProjectId: projectId });
             set({
                 activeProjectId: projectId,
-                topics: data.topics || [],
-                flinkJobs: data.flinkJobs || [],
+                streams: data.streams || [],
+                consumers: data.consumers || [],
                 flows: data.flows || [],
                 events: data.events || [],
                 activeFlowId: null,
@@ -167,16 +173,16 @@ const useStore = create<StoreState>((set, get) => {
             reader.readAsText(file);
         }),
 
-        // ── Topic actions ─────────────────────────────────────────
-        addTopic: (...a) => topicActions().addTopic(...a),
-        updateTopic: (...a) => topicActions().updateTopic(...a),
-        deleteTopic: (...a) => topicActions().deleteTopic(...a),
-        isTopicNameUnique: (n, x) => topicActions().isTopicNameUnique(n, x),
+        // ── Stream actions ─────────────────────────────────────────
+        addStream: (...a) => streamActions().addStream(...a),
+        updateStream: (...a) => streamActions().updateStream(...a),
+        deleteStream: (...a) => streamActions().deleteStream(...a),
+        isStreamNameUnique: (n, x) => streamActions().isStreamNameUnique(n, x),
 
-        // ── Flink Job actions ─────────────────────────────────────
-        addFlinkJob: (...a) => jobActions().addFlinkJob(...a),
-        updateFlinkJob: (...a) => jobActions().updateFlinkJob(...a),
-        deleteFlinkJob: (...a) => jobActions().deleteFlinkJob(...a),
+        // ── Consumer actions ─────────────────────────────────────
+        addConsumer: (...a) => consumerActions().addConsumer(...a),
+        updateConsumer: (...a) => consumerActions().updateConsumer(...a),
+        deleteConsumer: (...a) => consumerActions().deleteConsumer(...a),
 
         // ── Flow actions ──────────────────────────────────────────
         addFlow: (...a) => flowActions().addFlow(...a),
@@ -200,6 +206,28 @@ const useStore = create<StoreState>((set, get) => {
         openModal: (type, item = null) => set({ modalOpen: type, editingItem: item }),
         closeModal: () => set({ modalOpen: null, editingItem: null }),
         setSelectedNode: (id) => set({ selectedNodeId: id }),
+        setTraceMode: (enabled) => set({ traceMode: enabled }),
+        setEdgeStyle: (style) => {
+            storage.savePrefs({ ...storage.getPrefs(), edgeStyle: style });
+            set({ edgeStyle: style });
+        },
+        setEdgeShape: (shape) => {
+            storage.savePrefs({ ...storage.getPrefs(), edgeShape: shape });
+            set({ edgeShape: shape });
+        },
+
+        loadDemo: () => {
+            const project = get().createProject('E-Commerce Demo', 'Sample order processing pipeline with Kafka streams, consumers, and event-driven flows');
+            const id = project.id;
+            storage.saveProjectData(id, {
+                streams: DEMO_DATA.streams,
+                consumers: DEMO_DATA.consumers,
+                flows: DEMO_DATA.flows,
+                events: DEMO_DATA.events,
+            });
+            get().switchProject(id);
+            showToast('Demo project loaded 🚀');
+        },
     };
 });
 

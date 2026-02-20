@@ -7,28 +7,44 @@ import {
     BackgroundVariant, useNodesState, useEdgesState, Panel,
     Node, Edge, FitViewOptions, ProOptions,
 } from '@xyflow/react';
+import { Gauge, Footprints, Play, Square, Settings2, Send, Trash2 } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
-
-import TopicNode from '../nodes/TopicNode';
-import FlinkJobNode from '../nodes/FlinkJobNode';
+import StreamNode from '../nodes/StreamNode';
+import ConsumerNode from '../nodes/ConsumerNode';
 import AnimatedEdge from '../edges/AnimatedEdge';
+import EventDispatcher from '../simulation/EventDispatcher';
 import useStore from '../../store/useStore';
 import { buildGraph } from '../../lib/buildGraph';
 
-const nodeTypes = { topic: TopicNode, flinkJob: FlinkJobNode };
+const nodeTypes = { stream: StreamNode, consumer: ConsumerNode };
 const edgeTypes = { animated: AnimatedEdge };
 
 const FlowCanvas: React.FC = () => {
-    const topics = useStore(s => s.topics);
-    const flinkJobs = useStore(s => s.flinkJobs);
+    const streams = useStore(s => s.streams);
+    const consumers = useStore(s => s.consumers);
     const flows = useStore(s => s.flows);
     const events = useStore(s => s.events);
     const activeFlowId = useStore(s => s.activeFlowId);
     const simulation = useStore(s => s.simulation);
+    const traceMode = useStore(s => s.traceMode);
+
+    // Global style configs
+    const edgeStyle = useStore(s => s.edgeStyle);
+    const setEdgeStyle = useStore(s => s.setEdgeStyle);
+    const edgeShape = useStore(s => s.edgeShape);
+    const setEdgeShape = useStore(s => s.setEdgeShape);
+    const setSimulationSpeed = useStore(s => s.setSimulationSpeed);
+    const setTraceMode = useStore(s => s.setTraceMode);
+    const stopSimulation = useStore(s => s.stopSimulation);
+    const clearSimulation = useStore(s => s.clearSimulation);
+    const openModal = useStore(s => s.openModal);
+
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isFireEventOpen, setIsFireEventOpen] = useState(false);
 
     const { nodes: initialNodes, edges: initialEdges } = useMemo(
-        () => buildGraph({ topics, flinkJobs, flows, events, activeFlowId, simulation }),
-        [topics, flinkJobs, flows, events, activeFlowId, simulation]
+        () => buildGraph({ streams, consumers, flows, events, activeFlowId, simulation, traceMode }),
+        [streams, consumers, flows, events, activeFlowId, simulation, traceMode]
     );
 
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes as Node[]);
@@ -48,6 +64,16 @@ const FlowCanvas: React.FC = () => {
     const fitViewOptions: FitViewOptions = { padding: 0.3 };
     const proOptions: ProOptions = { hideAttribution: true };
 
+    const onNodeClick = (event: React.MouseEvent, node: Node) => {
+        if (node.type === 'stream') {
+            const stream = streams.find(s => s.id === node.id);
+            if (stream) openModal('nodeDetails', { type: 'stream', item: stream });
+        } else if (node.type === 'consumer') {
+            const consumer = consumers.find(c => c.id === node.id);
+            if (consumer) openModal('nodeDetails', { type: 'consumer', item: consumer });
+        }
+    };
+
     return (
         <div className="flow-canvas">
             <ReactFlow
@@ -55,6 +81,7 @@ const FlowCanvas: React.FC = () => {
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
+                onNodeClick={onNodeClick}
                 nodeTypes={nodeTypes as any}
                 edgeTypes={edgeTypes as any}
                 fitView
@@ -76,7 +103,7 @@ const FlowCanvas: React.FC = () => {
                 <MiniMap
                     position="bottom-right"
                     className="flow-minimap"
-                    nodeColor={node => node.type === 'topic' ? '#6366f1' : node.type === 'flinkJob' ? '#f59e0b' : '#64748b'}
+                    nodeColor={node => node.type === 'stream' ? '#6366f1' : node.type === 'consumer' ? '#f59e0b' : '#64748b'}
                     maskColor="rgba(0,0,0,0.5)"
                     pannable zoomable
                 />
@@ -102,6 +129,162 @@ const FlowCanvas: React.FC = () => {
                     </Panel>
                 )}
 
+                <Panel position="bottom-center" className="canvas-settings-panel" style={{ marginBottom: '16px', zIndex: 1000 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+
+                        {/* Expandable Settings Menu */}
+                        {isMenuOpen && (
+                            <div style={{ display: 'flex', gap: '12px', background: 'var(--bg-elevated)', backdropFilter: 'blur(8px)', padding: '10px 16px', borderRadius: '16px', border: '1px solid var(--border-strong)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)', pointerEvents: 'all' }}>
+                                {/* Display Settings */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderRight: '1px solid var(--border-default)', paddingRight: '12px' }}>
+                                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700 }}>Appearance</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', width: '60px' }}>Line Style</span>
+                                        <select
+                                            value={edgeStyle}
+                                            onChange={e => setEdgeStyle(e.target.value as any)}
+                                            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)', borderRadius: '6px', fontSize: '11px', padding: '4px 8px', outline: 'none', cursor: 'pointer', flex: 1 }}
+                                        >
+                                            <option value="solid">Solid</option>
+                                            <option value="dashed">Dashed</option>
+                                            <option value="dotted">Dotted</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', width: '60px' }}>Animation</span>
+                                        <select
+                                            value={edgeShape}
+                                            onChange={e => setEdgeShape(e.target.value as any)}
+                                            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)', borderRadius: '6px', fontSize: '11px', padding: '4px 8px', outline: 'none', cursor: 'pointer', flex: 1 }}
+                                        >
+                                            <option value="circle">Circle</option>
+                                            <option value="square">Square</option>
+                                            <option value="diamond">Diamond</option>
+                                            <option value="star">Star</option>
+                                            <option value="pizza">🍕 Pizza</option>
+                                            <option value="ghost">👻 Ghost</option>
+                                            <option value="heart">❤️ Heart</option>
+                                            <option value="alien">👽 Alien</option>
+                                            <option value="rocket">🚀 Rocket</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Simulation Settings */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '4px' }}>
+                                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700 }}>Simulation</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', width: '40px' }}>Speed</span>
+                                        <div style={{ display: 'flex', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border-default)', overflow: 'hidden' }}>
+                                            {[
+                                                { label: '0.25×', value: 4000 },
+                                                { label: '0.5×', value: 2000 },
+                                                { label: '1×', value: 1000 },
+                                                { label: '2×', value: 500 },
+                                                { label: '4×', value: 250 }
+                                            ].map(spd => (
+                                                <button
+                                                    key={spd.value}
+                                                    onClick={() => setSimulationSpeed(spd.value)}
+                                                    style={{
+                                                        background: simulation.speed === spd.value ? 'var(--indigo)' : 'transparent',
+                                                        color: simulation.speed === spd.value ? '#fff' : 'var(--text-secondary)',
+                                                        border: 'none', padding: '4px 8px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', flex: 1,
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                >
+                                                    {spd.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: 'auto' }}>
+                                        <button
+                                            onClick={() => setTraceMode(!traceMode)}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%',
+                                                background: traceMode ? 'color-mix(in srgb, var(--amber) 20%, transparent)' : 'var(--bg-tertiary)',
+                                                color: traceMode ? 'var(--amber)' : 'var(--text-primary)',
+                                                border: `1px solid ${traceMode ? 'var(--amber)' : 'var(--border-default)'}`,
+                                                borderRadius: '6px', fontSize: '11px', fontWeight: 600, padding: '4px 8px', cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            title={traceMode ? "Trace Mode: On (Shows history path)" : "Trace Mode: Off (Animates all active)"}
+                                        >
+                                            <Footprints size={12} />
+                                            <span>Trace Mode {traceMode ? 'ON' : 'OFF'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Main HUD Toolbar */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-elevated)', padding: '6px', borderRadius: '100px', border: '1px solid var(--border-strong)', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', pointerEvents: 'all' }}>
+                            <div style={{ position: 'relative' }}>
+                                {/* Event Dispatcher popup */}
+                                {isFireEventOpen && (
+                                    <div style={{ position: 'absolute', bottom: 'calc(100% + 12px)', left: '50%', transform: 'translateX(-50%)', width: '320px', pointerEvents: 'all', zIndex: 1001 }}>
+                                        <div style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)', borderRadius: '12px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-strong)', overflow: 'hidden' }}>
+                                            <EventDispatcher onClose={() => setIsFireEventOpen(false)} />
+                                        </div>
+                                    </div>
+                                )}
+                                <button
+                                    className={`sidebar-tab ${isFireEventOpen ? 'active' : ''}`}
+                                    onClick={() => { setIsFireEventOpen(!isFireEventOpen); setIsMenuOpen(false); }}
+                                    style={{ '--tab-color': 'var(--emerald)', padding: '6px 16px', borderRadius: '100px', background: isFireEventOpen ? 'color-mix(in srgb, var(--emerald) 20%, transparent)' : 'transparent', color: isFireEventOpen ? 'var(--emerald)' : 'var(--text-primary)' } as React.CSSProperties}
+                                >
+                                    <Send size={15} />
+                                    <span>Fire Event</span>
+                                </button>
+                            </div>
+
+                            {(simulation.active || simulation.visitedStreamIds.length > 0 || simulation.visitedConsumerIds.length > 0) && (
+                                <button
+                                    onClick={() => { stopSimulation(); }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', borderRadius: '100px', background: 'color-mix(in srgb, var(--rose) 15%, transparent)', color: 'var(--rose)', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                                >
+                                    <Square size={14} fill="currentColor" />
+                                    <span>Stop</span>
+                                </button>
+                            )}
+
+                            {!simulation.active && simulation.visitedStreamIds.length === 0 && (simulation.eventLog?.length > 0) && (
+                                <button
+                                    onClick={clearSimulation}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', borderRadius: '100px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                                >
+                                    <Trash2 size={14} />
+                                    <span>Clear Log</span>
+                                </button>
+                            )}
+
+                            <div style={{ width: '1px', height: '24px', background: 'var(--border-default)', margin: '0 4px' }} />
+
+                            <button
+                                onClick={() => { setIsMenuOpen(!isMenuOpen); setIsFireEventOpen(false); }}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    background: isMenuOpen ? 'var(--bg-tertiary)' : 'transparent', color: 'var(--text-primary)',
+                                    border: 'none', borderRadius: '100px',
+                                    padding: '6px 16px', fontSize: '13px', fontWeight: 600,
+                                    cursor: 'pointer', pointerEvents: 'all',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <Settings2 size={16} />
+                                <span>Settings</span>
+                                <div style={{ display: 'flex', gap: '4px', marginLeft: '-2px' }}>
+                                    {(simulation.speed !== 1000 || traceMode || edgeStyle !== 'solid' || edgeShape !== 'circle') && (
+                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--indigo)', alignSelf: 'center' }} />
+                                    )}
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </Panel>
+
                 {nodes.length === 0 && (
                     <Panel position="top-left" className="empty-canvas-panel">
                         <div className="empty-canvas">
@@ -112,12 +295,12 @@ const FlowCanvas: React.FC = () => {
                                 </svg>
                             </div>
                             <h3>Start Building Your Flow</h3>
-                            <p>Create Kafka topics and Flink jobs from the sidebar to visualize your data pipeline</p>
+                            <p>Create event streams and consumers from the sidebar to visualize your data pipeline</p>
                         </div>
                     </Panel>
                 )}
             </ReactFlow>
-        </div>
+        </div >
     );
 };
 

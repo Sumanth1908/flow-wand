@@ -5,11 +5,11 @@ import ModalFooter from './ModalFooter';
 import { DataFlow } from '../../types';
 
 const PALETTE = [
-    { value: '#10b981', label: 'Emerald' }, { value: '#6366f1', label: 'Indigo' },
-    { value: '#f59e0b', label: 'Amber' }, { value: '#ef4444', label: 'Red' },
-    { value: '#8b5cf6', label: 'Violet' }, { value: '#ec4899', label: 'Pink' },
-    { value: '#14b8a6', label: 'Teal' }, { value: '#f97316', label: 'Orange' },
-    { value: '#06b6d4', label: 'Cyan' }, { value: '#84cc16', label: 'Lime' },
+    { value: '#00FA9A', label: 'Neon Emerald' }, { value: '#5C33FF', label: 'Deep Indigo' },
+    { value: '#FFB300', label: 'Bright Amber' }, { value: '#FF1133', label: 'Laser Red' },
+    { value: '#A200FF', label: 'Neon Violet' }, { value: '#FF007F', label: 'Hot Pink' },
+    { value: '#00FFFF', label: 'Cyber Cyan' }, { value: '#FF5E00', label: 'Blaze Orange' },
+    { value: '#7CFC00', label: 'Electric Lime' }, { value: '#0000FF', label: 'Pure Blue' },
 ];
 
 const toggle = (arr: string[], item: string) =>
@@ -22,22 +22,22 @@ interface FlowFormProps {
 const FlowForm: React.FC<FlowFormProps> = ({ color }) => {
     const editingItem = useStore(s => s.editingItem) as DataFlow | null;
     const closeModal = useStore(s => s.closeModal);
-    const flinkJobs = useStore(s => s.flinkJobs);
+    const consumers = useStore(s => s.consumers);
     const addFlow = useStore(s => s.addFlow);
     const updateFlow = useStore(s => s.updateFlow);
 
     const [name, setName] = useState(editingItem?.name || '');
     const [desc, setDesc] = useState(editingItem?.description || '');
-    const [jobIds, setJobIds] = useState<string[]>(editingItem?.jobIds || []);
+    const [consumerIds, setConsumerIds] = useState<string[]>(editingItem?.consumerIds || []);
     const [flowColor, setColor] = useState(editingItem?.color || '#10b981');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
         if (editingItem) {
-            updateFlow(editingItem.id, { name: name.trim(), description: desc.trim(), jobIds, color: flowColor });
+            updateFlow(editingItem.id, { name: name.trim(), description: desc.trim(), consumerIds, color: flowColor });
         } else {
-            addFlow(name.trim(), flowColor, jobIds, desc.trim());
+            addFlow(name.trim(), flowColor, consumerIds, desc.trim());
         }
         closeModal();
     };
@@ -74,19 +74,19 @@ const FlowForm: React.FC<FlowFormProps> = ({ color }) => {
             </div>
 
             <div className="form-group">
-                <label>Flink Jobs in this Flow</label>
-                {flinkJobs.length === 0
-                    ? <div className="empty-selection">No jobs yet — create Flink jobs first.</div>
+                <label>Consumers in this Flow</label>
+                {consumers.length === 0
+                    ? <div className="empty-selection">No consumers yet — create consumers first.</div>
                     : (
                         <div className="chip-selector">
-                            {flinkJobs.map(j => (
+                            {consumers.map(j => (
                                 <button
                                     key={j.id} type="button"
-                                    className={`chip ${jobIds.includes(j.id) ? 'selected' : ''}`}
-                                    style={jobIds.includes(j.id) ? { borderColor: flowColor, color: flowColor, background: `${flowColor}18` } as React.CSSProperties : {}}
-                                    onClick={() => setJobIds(toggle(jobIds, j.id))}
+                                    className={`chip ${consumerIds.includes(j.id) ? 'selected' : ''}`}
+                                    style={consumerIds.includes(j.id) ? { borderColor: flowColor, color: flowColor, background: `${flowColor}18` } as React.CSSProperties : {}}
+                                    onClick={() => setConsumerIds(toggle(consumerIds, j.id))}
                                 >
-                                    {jobIds.includes(j.id) && <Check size={12} />}
+                                    {consumerIds.includes(j.id) && <Check size={12} />}
                                     {j.name}
                                 </button>
                             ))}

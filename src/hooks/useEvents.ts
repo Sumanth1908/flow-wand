@@ -3,14 +3,14 @@
  */
 import { v4 as uuid } from 'uuid';
 import * as storage from '../lib/storage';
-import { EventType, Topic } from '../types';
+import { EventType, Consumer } from '../types';
 
 export function buildEventActions(
     projectId: string | null,
     getEvents: () => EventType[],
     setEvents: (events: EventType[]) => void,
-    getTopics: () => Topic[],
-    setTopics: (topics: Topic[]) => void
+    getConsumers: () => Consumer[],
+    setConsumers: (consumers: Consumer[]) => void
 ) {
     const addEvent = (name: string, description = '', schema = '{}') => {
         if (!projectId) return;
@@ -34,12 +34,14 @@ export function buildEventActions(
         if (!projectId) return;
         storage.deleteEvent(projectId, id);
         setEvents(getEvents().filter(e => e.id !== id));
-        // Cascade: remove eventId from topics in local state
-        setTopics(getTopics().map(t => ({
-            ...t,
-            eventIds: (t.eventIds || []).filter(x => x !== id),
+        // Cascade: remove eventId from consumers in local state
+        setConsumers(getConsumers().map(c => ({
+            ...c,
+            sources: (c.sources || []).map(s => ({ ...s, eventIds: (s.eventIds || []).filter(x => x !== id) })),
+            sinks: (c.sinks || []).map(s => ({ ...s, eventIds: (s.eventIds || []).filter(x => x !== id) })),
         })));
     };
 
     return { addEvent, updateEvent, deleteEvent };
 }
+

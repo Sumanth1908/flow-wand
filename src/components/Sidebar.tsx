@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../store/useStore';
+import { EventStream, EventType } from '../types';
+import { APP_CONFIG } from '../lib/config';
 import {
     BookOpen,
     Zap,
@@ -21,18 +23,19 @@ import {
     Radio,
     PanelLeftClose,
     PanelLeftOpen,
+    Sparkles,
 } from 'lucide-react';
 
 interface TabItem {
-    id: 'topics' | 'jobs' | 'flows' | 'events';
+    id: 'streams' | 'consumers' | 'flows' | 'events';
     label: string;
     icon: any;
     color: string;
 }
 
 const tabs: TabItem[] = [
-    { id: 'topics', label: 'Topics', icon: BookOpen, color: '#6366f1' },
-    { id: 'jobs', label: 'Jobs', icon: Zap, color: '#f59e0b' },
+    { id: 'streams', label: 'Streams', icon: BookOpen, color: '#6366f1' },
+    { id: 'consumers', label: 'Consumers', icon: Zap, color: '#f59e0b' },
     { id: 'flows', label: 'Flows', icon: GitBranch, color: '#10b981' },
     { id: 'events', label: 'Events', icon: Radio, color: '#ec4899' },
 ];
@@ -54,35 +57,36 @@ const formatTimestamp = (isoString: string | null) => {
 };
 
 const Sidebar: React.FC = () => {
-    const {
-        sidebarTab,
-        setSidebarTab,
-        leftSidebarOpen,
-        setLeftSidebar,
-        topics,
-        flinkJobs,
-        flows,
-        events,
-        openModal,
-        deleteTopic,
-        deleteFlinkJob,
-        deleteFlow,
-        deleteEvent,
-        activeFlowId,
-        setActiveFlow,
-        startSimulation,
-        simulation,
-        projects,
-        activeProjectId,
-        switchProject,
-        deleteProject,
-        theme,
-        toggleTheme,
-        saveProject,
-        exportProject,
-        importProject,
-        lastSavedAt,
-    } = useStore();
+    const sidebarTab = useStore(s => s.sidebarTab);
+    const setSidebarTab = useStore(s => s.setSidebarTab);
+    const leftSidebarOpen = useStore(s => s.leftSidebarOpen);
+    const setLeftSidebar = useStore(s => s.setLeftSidebar);
+    const streams = useStore(s => s.streams);
+    const consumers = useStore(s => s.consumers);
+    const flows = useStore(s => s.flows);
+    const events = useStore(s => s.events);
+    const openModal = useStore(s => s.openModal);
+    const deleteStream = useStore(s => s.deleteStream);
+    const deleteConsumer = useStore(s => s.deleteConsumer);
+    const deleteFlow = useStore(s => s.deleteFlow);
+    const deleteEvent = useStore(s => s.deleteEvent);
+    const activeFlowId = useStore(s => s.activeFlowId);
+    const setActiveFlow = useStore(s => s.setActiveFlow);
+    const startSimulation = useStore(s => s.startSimulation);
+    const simActive = useStore(s => s.simulation.active);
+    const simVisitedStreamIds = useStore(s => s.simulation.visitedStreamIds);
+    const simVisitedConsumerIds = useStore(s => s.simulation.visitedConsumerIds);
+    const projects = useStore(s => s.projects);
+    const activeProjectId = useStore(s => s.activeProjectId);
+    const switchProject = useStore(s => s.switchProject);
+    const deleteProject = useStore(s => s.deleteProject);
+    const theme = useStore(s => s.theme);
+    const toggleTheme = useStore(s => s.toggleTheme);
+    const saveProject = useStore(s => s.saveProject);
+    const exportProject = useStore(s => s.exportProject);
+    const importProject = useStore(s => s.importProject);
+    const lastSavedAt = useStore(s => s.lastSavedAt);
+    const loadDemo = useStore(s => s.loadDemo);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
@@ -90,10 +94,10 @@ const Sidebar: React.FC = () => {
 
     const activeProject = projects.find((p) => p.id === activeProjectId);
 
-    const filteredTopics = topics.filter((t) =>
+    const filteredStreams = streams.filter((t) =>
         t.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-    const filteredJobs = flinkJobs.filter((j) =>
+    const filteredConsumers = consumers.filter((j) =>
         j.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
     const filteredFlows = flows.filter((f) =>
@@ -103,9 +107,9 @@ const Sidebar: React.FC = () => {
         e.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const handleSimulate = (topicId: string) => {
-        if (!simulation.active) {
-            startSimulation(topicId);
+    const handleSimulate = (streamId: string) => {
+        if (!simActive) {
+            startSimulation(streamId);
         }
     };
 
@@ -147,12 +151,12 @@ const Sidebar: React.FC = () => {
             <div className="sidebar-header">
                 <div className="sidebar-header-top">
                     <div className="logo-container">
-                        <div className="logo-icon">
-                            <Layers size={20} />
+                        <div style={{ width: 36, height: 36, borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <img src="/logo.png" alt="FlowWand" style={{ width: '125%', height: '125%', objectFit: 'cover' }} />
                         </div>
                         <div className="logo-text">
-                            <h1>FlowWand</h1>
-                            <div className="logo-subtitle">Event Mesh Designer</div>
+                            <h1>{APP_CONFIG.name}</h1>
+                            <div className="logo-subtitle">{APP_CONFIG.tagline}</div>
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
@@ -229,9 +233,12 @@ const Sidebar: React.FC = () => {
                                     className="btn-icon-xs"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (confirm(`Delete project "${p.name}" and all its data?`)) {
-                                            deleteProject(p.id);
-                                        }
+                                        openModal('confirm', {
+                                            title: 'Delete Project',
+                                            message: `Delete project "${p.name}" and all its data?`,
+                                            confirmLabel: 'Delete',
+                                            onConfirm: () => deleteProject(p.id)
+                                        });
                                     }}
                                 >
                                     <Trash2 size={12} />
@@ -244,6 +251,13 @@ const Sidebar: React.FC = () => {
                         }}>
                             <Plus size={14} />
                             <span>Create New Project</span>
+                        </button>
+                        <button className="project-dropdown-new" style={{ color: 'var(--amber)' }} onClick={() => {
+                            loadDemo();
+                            setProjectDropdownOpen(false);
+                        }}>
+                            <Sparkles size={14} />
+                            <span>Load Demo</span>
                         </button>
                     </motion.div>
                 )}
@@ -277,10 +291,10 @@ const Sidebar: React.FC = () => {
                                 <tab.icon size={15} />
                                 <span>{tab.label}</span>
                                 <span className="tab-count">
-                                    {tab.id === 'topics'
-                                        ? topics.length
-                                        : tab.id === 'jobs'
-                                            ? flinkJobs.length
+                                    {tab.id === 'streams'
+                                        ? streams.length
+                                        : tab.id === 'consumers'
+                                            ? consumers.length
                                             : tab.id === 'events'
                                                 ? events.length
                                                 : flows.length}
@@ -292,9 +306,9 @@ const Sidebar: React.FC = () => {
                     {/* List Content */}
                     <div className="sidebar-content">
                         <AnimatePresence mode="wait">
-                            {sidebarTab === 'topics' && (
+                            {sidebarTab === 'streams' && (
                                 <motion.div
-                                    key="topics"
+                                    key="streams"
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: 10 }}
@@ -302,39 +316,43 @@ const Sidebar: React.FC = () => {
                                     className="sidebar-list"
                                 >
                                     <div className="list-header">
-                                        <h3>Topics</h3>
-                                        <button className="btn-add" onClick={() => openModal('topic')}>
+                                        <h3>Event Streams</h3>
+                                        <button className="btn-add" onClick={() => openModal('stream')}>
                                             <Plus size={14} />
                                             <span>New</span>
                                         </button>
                                     </div>
 
-                                    {filteredTopics.length === 0 ? (
+                                    {filteredStreams.length === 0 ? (
                                         <div className="empty-state">
                                             <BookOpen size={32} strokeWidth={1} />
-                                            <p>No topics found</p>
+                                            <p>No streams found</p>
                                         </div>
                                     ) : (
-                                        filteredTopics.map((topic) => (
+                                        filteredStreams.map((stream: EventStream) => (
                                             <motion.div
-                                                key={topic.id}
-                                                className={`sidebar-item topic-item ${simulation.visitedTopicIds.includes(topic.id) ? 'sim-visited' : ''}`}
+                                                key={stream.id}
+                                                className={`sidebar-item stream-item ${simVisitedStreamIds.includes(stream.id) ? 'sim-visited' : ''}`}
                                                 layout
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 whileHover={{ x: 4 }}
                                             >
-                                                <div className="item-color-bar topic-bar" />
+                                                <div className="item-color-bar stream-bar" />
                                                 <div className="item-content">
-                                                    <div className="item-name">{topic.name}</div>
-                                                    <div className="item-details">
-                                                        {topic.partitions} partitions
-                                                        {topic.description && ` · ${topic.description}`}
+                                                    <div className="item-name">
+                                                        {stream.name}
                                                     </div>
-                                                    {topic.eventIds && topic.eventIds.length > 0 && (
+                                                    <div className="item-details">
+                                                        {stream.description && `${stream.description}`}
+                                                    </div>
+                                                    <div className="item-details">
+                                                        <span className="pill" >{stream.type}</span>
+                                                    </div>
+                                                    {stream.eventIds && stream.eventIds.length > 0 && (
                                                         <div className="item-tags">
-                                                            {topic.eventIds.map(eid => {
-                                                                const ev = (events || []).find(e => e.id === eid);
+                                                            {stream.eventIds.map((eid: string) => {
+                                                                const ev = (events as EventType[] || []).find((e: EventType) => e.id === eid);
                                                                 return ev ? (
                                                                     <span key={eid} className="item-tag event-tag">
                                                                         {ev.name}
@@ -347,15 +365,15 @@ const Sidebar: React.FC = () => {
                                                 <div className="item-actions">
                                                     <button
                                                         className="btn-icon btn-simulate"
-                                                        onClick={() => handleSimulate(topic.id)}
+                                                        onClick={() => handleSimulate(stream.id)}
                                                         title="Simulate event"
-                                                        disabled={simulation.active}
+                                                        disabled={simActive}
                                                     >
                                                         <Play size={12} />
                                                     </button>
                                                     <button
                                                         className="btn-icon"
-                                                        onClick={() => openModal('topic', topic)}
+                                                        onClick={() => openModal('stream', stream)}
                                                         title="Edit"
                                                     >
                                                         <Edit3 size={12} />
@@ -363,9 +381,12 @@ const Sidebar: React.FC = () => {
                                                     <button
                                                         className="btn-icon btn-delete"
                                                         onClick={() => {
-                                                            if (confirm(`Delete topic "${topic.name}"?`)) {
-                                                                deleteTopic(topic.id);
-                                                            }
+                                                            openModal('confirm', {
+                                                                title: 'Delete Stream',
+                                                                message: `Are you sure you want to delete the stream "${stream.name}"?`,
+                                                                confirmLabel: 'Delete',
+                                                                onConfirm: () => deleteStream(stream.id)
+                                                            });
                                                         }}
                                                         title="Delete"
                                                     >
@@ -378,9 +399,9 @@ const Sidebar: React.FC = () => {
                                 </motion.div>
                             )}
 
-                            {sidebarTab === 'jobs' && (
+                            {sidebarTab === 'consumers' && (
                                 <motion.div
-                                    key="jobs"
+                                    key="consumers"
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: 10 }}
@@ -388,39 +409,39 @@ const Sidebar: React.FC = () => {
                                     className="sidebar-list"
                                 >
                                     <div className="list-header">
-                                        <h3>Flink Jobs</h3>
-                                        <button className="btn-add" onClick={() => openModal('job')}>
+                                        <h3>Consumers</h3>
+                                        <button className="btn-add" onClick={() => openModal('consumer')}>
                                             <Plus size={14} />
                                             <span>New</span>
                                         </button>
                                     </div>
 
-                                    {filteredJobs.length === 0 ? (
+                                    {filteredConsumers.length === 0 ? (
                                         <div className="empty-state">
                                             <Zap size={32} strokeWidth={1} />
-                                            <p>No jobs found</p>
+                                            <p>No consumers found</p>
                                         </div>
                                     ) : (
-                                        filteredJobs.map((job) => (
+                                        filteredConsumers.map((consumer) => (
                                             <motion.div
-                                                key={job.id}
-                                                className={`sidebar-item job-item ${simulation.visitedJobIds.includes(job.id) ? 'sim-visited' : ''}`}
+                                                key={consumer.id}
+                                                className={`sidebar-item consumer-item ${simVisitedConsumerIds.includes(consumer.id) ? 'sim-visited' : ''}`}
                                                 layout
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 whileHover={{ x: 4 }}
                                             >
-                                                <div className="item-color-bar job-bar" />
+                                                <div className="item-color-bar consumer-bar" />
                                                 <div className="item-content">
-                                                    <div className="item-name">{job.name}</div>
+                                                    <div className="item-name">{consumer.name}</div>
                                                     <div className="item-details">
-                                                        {job.sourceTopics.length} in · {job.sinkTopics.length} out
+                                                        {(consumer.sources || []).length} in · {(consumer.sinks || []).length} out
                                                     </div>
                                                 </div>
                                                 <div className="item-actions">
                                                     <button
                                                         className="btn-icon"
-                                                        onClick={() => openModal('job', job)}
+                                                        onClick={() => openModal('consumer', consumer)}
                                                         title="Edit"
                                                     >
                                                         <Edit3 size={12} />
@@ -428,9 +449,12 @@ const Sidebar: React.FC = () => {
                                                     <button
                                                         className="btn-icon btn-delete"
                                                         onClick={() => {
-                                                            if (confirm(`Delete job "${job.name}"?`)) {
-                                                                deleteFlinkJob(job.id);
-                                                            }
+                                                            openModal('confirm', {
+                                                                title: 'Delete Consumer',
+                                                                message: `Are you sure you want to delete the consumer "${consumer.name}"?`,
+                                                                confirmLabel: 'Delete',
+                                                                onConfirm: () => deleteConsumer(consumer.id)
+                                                            });
                                                         }}
                                                         title="Delete"
                                                     >
@@ -480,7 +504,7 @@ const Sidebar: React.FC = () => {
                                                 <div className="item-content">
                                                     <div className="item-name">{flow.name}</div>
                                                     <div className="item-details">
-                                                        {flow.jobIds.length} jobs
+                                                        {flow.consumerIds.length} consumers
                                                     </div>
                                                 </div>
                                                 <div className="item-actions">
@@ -498,9 +522,12 @@ const Sidebar: React.FC = () => {
                                                         className="btn-icon btn-delete"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            if (confirm(`Delete flow "${flow.name}"?`)) {
-                                                                deleteFlow(flow.id);
-                                                            }
+                                                            openModal('confirm', {
+                                                                title: 'Delete Flow',
+                                                                message: `Are you sure you want to delete the flow "${flow.name}"?`,
+                                                                confirmLabel: 'Delete',
+                                                                onConfirm: () => deleteFlow(flow.id)
+                                                            });
                                                         }}
                                                         title="Delete"
                                                     >
@@ -537,7 +564,7 @@ const Sidebar: React.FC = () => {
                                         <div className="empty-state">
                                             <Radio size={32} strokeWidth={1} />
                                             <p>No events yet</p>
-                                            <span>Define event schemas to tag your topics</span>
+                                            <span>Define event schemas to tag your streams</span>
                                         </div>
                                     ) : (
                                         filteredEvents.map((event) => (
@@ -567,9 +594,12 @@ const Sidebar: React.FC = () => {
                                                     <button
                                                         className="btn-icon btn-delete"
                                                         onClick={() => {
-                                                            if (confirm(`Delete event "${event.name}"?`)) {
-                                                                deleteEvent(event.id);
-                                                            }
+                                                            openModal('confirm', {
+                                                                title: 'Delete Event',
+                                                                message: `Are you sure you want to delete the event "${event.name}"?`,
+                                                                confirmLabel: 'Delete',
+                                                                onConfirm: () => deleteEvent(event.id)
+                                                            });
                                                         }}
                                                         title="Delete"
                                                     >
@@ -595,6 +625,28 @@ const Sidebar: React.FC = () => {
                     </button>
                 </div>
             )}
+
+            {/* Footer */}
+            <div style={{ marginTop: 'auto', padding: '12px 16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <a href={APP_CONFIG.author.buyMeACoffee} target="_blank" rel="noopener noreferrer">
+                    <img
+                        src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+                        alt="Buy Me A Coffee"
+                        style={{ height: '36px', width: 'auto' }}
+                    />
+                </a>
+                <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+                    Made with ❤️ by{' '}
+                    <a
+                        href={APP_CONFIG.author.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--indigo-light)', textDecoration: 'none' }}
+                    >
+                        {APP_CONFIG.author.shortName}
+                    </a>
+                </span>
+            </div>
         </aside>
     );
 };

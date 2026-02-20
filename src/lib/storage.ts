@@ -1,7 +1,7 @@
 /**
  * lib/storage.ts
  */
-import { Project, Topic, FlinkJob, DataFlow, EventType } from '../types';
+import { Project, EventStream, Consumer, DataFlow, EventType } from '../types';
 
 const KEYS = {
     PROJECTS: 'fw_projects',
@@ -10,8 +10,8 @@ const KEYS = {
 };
 
 interface ProjectData {
-    topics: Topic[];
-    flinkJobs: FlinkJob[];
+    streams: EventStream[];
+    consumers: Consumer[];
     flows: DataFlow[];
     events: EventType[];
 }
@@ -19,6 +19,8 @@ interface ProjectData {
 interface AppPrefs {
     activeProjectId: string | null;
     theme: string;
+    edgeStyle?: string;
+    edgeShape?: string;
 }
 
 // ── helpers ─────────────────────────────────────────────────
@@ -40,7 +42,7 @@ const write = (key: string, val: any) => {
 };
 
 // ── Preferences ─────────────────────────────────────────────
-export const getPrefs = (): AppPrefs => read(KEYS.PREFS, { activeProjectId: null, theme: 'dark' });
+export const getPrefs = (): AppPrefs => read(KEYS.PREFS, { activeProjectId: null, theme: 'dark', edgeStyle: 'solid', edgeShape: 'circle' });
 export const savePrefs = (prefs: AppPrefs) => write(KEYS.PREFS, prefs);
 
 // ── Projects ─────────────────────────────────────────────────
@@ -51,7 +53,7 @@ export const createProject = (project: Project) => {
     const list = getProjects();
     list.push(project);
     saveProjects(list);
-    write(KEYS.PROJECT_PFX + project.id, { topics: [], flinkJobs: [], flows: [], events: [] });
+    write(KEYS.PROJECT_PFX + project.id, { streams: [], consumers: [], flows: [], events: [] });
     return project;
 };
 
@@ -66,48 +68,106 @@ export const deleteProject = (id: string) => {
 };
 
 // ── Project data ─────────────────────────────────────────────
-const defaultData = (): ProjectData => ({ topics: [], flinkJobs: [], flows: [], events: [] });
+const defaultData = (): ProjectData => ({ streams: [], consumers: [], flows: [], events: [] });
 
-export const getProjectData = (id: string): ProjectData => read(KEYS.PROJECT_PFX + id, defaultData());
+export const getProjectData = (id: string): ProjectData => {
+    const data = read(KEYS.PROJECT_PFX + id, defaultData()) as any;
+    // Simple migration logic
+    if (data.topics && !data.streams) {
+        data.streams = data.topics.map((t: any) => ({
+            ...t,
+            type: t.type || 'kafka',
+            eventIds: t.eventIds || []
+        }));
+        delete data.topics;
+    }
+    if (data.streams) {
+        data.streams = data.streams.map((s: any) => ({
+            ...s,
+            eventIds: s.eventIds || []
+        }));
+    }
+    if (data.flinkJobs && !data.consumers) {
+        data.consumers = data.flinkJobs.map((j: any) => ({
+            ...j,
+            sources: (j.sourceTopics || []).map((tId: string) => ({ streamId: tId, eventIds: [] })),
+            sinks: (j.sinkTopics || []).map((tId: string) => ({ streamId: tId, eventIds: [] })),
+        }));
+        delete data.flinkJobs;
+    }
+    if (data.flows) {
+        data.flows = data.flows.map((f: any) => {
+            if (f.jobIds && !f.consumerIds) {
+                return { ...f, consumerIds: f.jobIds };
+            }
+            return f;
+        });
+    }
+
+    // Migration for event tagging: from flat arrays to specific mappings
+    if (data.consumers) {
+        data.consumers = data.consumers.map((c: any) => {
+            if (c.sourceStreams && !c.sources) {
+                c.sources = c.sourceStreams.map((sId: string) => ({
+                    streamId: sId,
+                    eventIds: c.sourceEventIds || []
+                }));
+                delete c.sourceStreams;
+                delete c.sourceEventIds;
+            }
+            if (c.sinkStreams && !c.sinks) {
+                c.sinks = c.sinkStreams.map((sId: string) => ({
+                    streamId: sId,
+                    eventIds: c.sinkEventIds || []
+                }));
+                delete c.sinkStreams;
+                delete c.sinkEventIds;
+            }
+            return c;
+        });
+    }
+
+    return data;
+};
 export const saveProjectData = (id: string, data: ProjectData) => write(KEYS.PROJECT_PFX + id, data);
 
-// ── Topics ──────────────────────────────────────────────────
-export const createTopic = (projectId: string, topic: Topic) => {
+// ── Streams ──────────────────────────────────────────────────
+export const createStream = (projectId: string, stream: EventStream) => {
     const d = getProjectData(projectId);
-    d.topics.push(topic);
+    d.streams.push(stream);
     saveProjectData(projectId, d);
 };
-export const updateTopic = (projectId: string, id: string, patch: Partial<Topic>) => {
+export const updateStream = (projectId: string, id: string, patch: Partial<EventStream>) => {
     const d = getProjectData(projectId);
-    d.topics = d.topics.map(t => t.id === id ? { ...t, ...patch } : t);
+    d.streams = d.streams.map(t => t.id === id ? { ...t, ...patch } : t);
     saveProjectData(projectId, d);
 };
-export const deleteTopic = (projectId: string, id: string) => {
+export const deleteStream = (projectId: string, id: string) => {
     const d = getProjectData(projectId);
-    d.topics = d.topics.filter(t => t.id !== id);
-    d.flinkJobs = d.flinkJobs.map(j => ({
-        ...j,
-        sourceTopics: (j.sourceTopics || []).filter(x => x !== id),
-        sinkTopics: (j.sinkTopics || []).filter(x => x !== id),
+    d.streams = d.streams.filter(t => t.id !== id);
+    d.consumers = d.consumers.map(c => ({
+        ...c,
+        sources: (c.sources || []).filter(s => s.streamId !== id),
+        sinks: (c.sinks || []).filter(s => s.streamId !== id),
     }));
     saveProjectData(projectId, d);
 };
 
-// ── Flink Jobs ──────────────────────────────────────────────
-export const createFlinkJob = (projectId: string, job: FlinkJob) => {
+// ── Consumers ──────────────────────────────────────────────
+export const createConsumer = (projectId: string, consumer: Consumer) => {
     const d = getProjectData(projectId);
-    d.flinkJobs.push(job);
+    d.consumers.push(consumer);
     saveProjectData(projectId, d);
 };
-export const updateFlinkJob = (projectId: string, id: string, patch: Partial<FlinkJob>) => {
+export const updateConsumer = (projectId: string, id: string, patch: Partial<Consumer>) => {
     const d = getProjectData(projectId);
-    d.flinkJobs = d.flinkJobs.map(j => j.id === id ? { ...j, ...patch } : j);
+    d.consumers = d.consumers.map(j => j.id === id ? { ...j, ...patch } : j);
     saveProjectData(projectId, d);
 };
-export const deleteFlinkJob = (projectId: string, id: string) => {
+export const deleteConsumer = (projectId: string, id: string) => {
     const d = getProjectData(projectId);
-    d.flinkJobs = d.flinkJobs.filter(j => j.id !== id);
-    d.flows = d.flows.map(f => ({ ...f, jobIds: (f.jobIds || []).filter(x => x !== id) }));
+    d.consumers = d.consumers.filter(j => j.id !== id);
+    d.flows = d.flows.map(f => ({ ...f, consumerIds: (f.consumerIds || []).filter(x => x !== id) }));
     saveProjectData(projectId, d);
 };
 
@@ -143,9 +203,10 @@ export const updateEvent = (projectId: string, id: string, patch: Partial<EventT
 export const deleteEvent = (projectId: string, id: string) => {
     const d = getProjectData(projectId);
     d.events = (d.events || []).filter(e => e.id !== id);
-    d.topics = d.topics.map(t => ({
-        ...t,
-        eventIds: (t.eventIds || []).filter(x => x !== id),
+    d.consumers = d.consumers.map(c => ({
+        ...c,
+        sources: (c.sources || []).map(s => ({ ...s, eventIds: (s.eventIds || []).filter(eid => eid !== id) })),
+        sinks: (c.sinks || []).map(s => ({ ...s, eventIds: (s.eventIds || []).filter(eid => eid !== id) })),
     }));
     saveProjectData(projectId, d);
 };
@@ -166,3 +227,4 @@ export const importProject = (bundle: { project: Project, data: ProjectData }) =
     saveProjectData(project.id, data);
     return project;
 };
+

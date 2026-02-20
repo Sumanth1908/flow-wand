@@ -1,61 +1,106 @@
-# 🪄 FlowWand: Event Mesh Designer
+# 🪄 FlowWand — Event Mesh Designer
 
-**FlowWand** is a premium, interactive laboratory for designing and simulating complex data event meshes. Built for data architects and engineers, it allows you to visualize the flow of data across Kafka topics and Flink processing jobs with an intuitive, IDE-grade interface.
+<p align="center">
+  <img src="public/logo.png" alt="FlowWand Logo" width="120" />
+</p>
 
-![FlowWand Preview](https://raw.githubusercontent.com/Sumanth1908/flow-wand/main/public/preview.png) *(Placeholder for actual preview image)*
+<p align="center">
+  <strong>A premium, interactive visual designer for event-driven architectures.</strong><br/>
+  Design, simulate, and trace data flows across Kafka streams, SQS queues, SNS topics, and custom consumers — all in a beautiful, real-time canvas.
+</p>
 
-## ✨ Key Features
+<p align="center">
+  <a href="https://buymeacoffee.com/sumanth_js" target="_blank">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="40" />
+  </a>
+</p>
 
--   **🎨 Dynamic Architecture Canvas**: Design your pipeline using specialized nodes for Kafka Topics and Flink Jobs. Derived from React Flow for a smooth, high-performance experience.
--   **🚀 Interactive Simulation Center**: Fire custom JSON events into your mesh. Watch data particles traverse the paths in real-time, highlighting active routes and processing stages.
--   **🌈 Flow-based Theming**: Organize your mesh into logical "Flows". Assign vibrant colors to different architectural domains, which dynamically update the canvas highlights, edges, and simulation effects.
--   **📝 Live Event Logging**: Monitor the simulation step-by-step with a high-fidelity console. Inspect payloads as they transform through Flink jobs.
--   **💾 Project Management**: Create multiple projects, save your progress locally, and export/import your architectures as portable JSON templates.
--   **🌑 Premium Aesthetics**: A "glassmorphic" Dark Mode interface designed for deep work, featuring smooth animations powered by Framer Motion.
--   **🛡️ Type Safe Architecture**: Fully converted to TypeScript for robust development and architectural clarity.
+---
 
-## 🛠️ Technology Stack
+## ✨ Features
 
--   **Core**: [React](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
--   **Graph Engine**: [@xyflow/react](https://reactflow.dev/) (React Flow)
--   **State Management**: [Zustand](https://github.com/pmndrs/zustand)
--   **Animations**: [Framer Motion](https://www.framer.com/motion/)
--   **Icons**: [Lucide React](https://lucide.dev/)
--   **Styling**: Vanilla CSS with a custom design system
+- **🎨 Visual Architecture Canvas** — Drag, connect and arrange Event Streams (Kafka, SQS, SNS) and Consumers on a high-performance React Flow graph
+- **🚀 Live Simulation Engine** — Fire events into any stream and watch animated particles flow through the pipeline in real-time
+- **🎭 Fun Animations** — Choose from circles, diamonds, stars, or emoji particles (🍕 Pizza, 👻 Ghost, 🚀 Rocket, 👽 Alien, ❤️ Heart)
+- **🔍 Click-to-Inspect Nodes** — Click any node for a read-only details view showing stream type, partitions, connected events, source/sink mappings
+- **🌈 Color-Coded Flows** — Organize consumers into logical Flows with vivid neon colors. Spotlight any flow to isolate its path on the canvas
+- **📋 Event Type Registry** — Define event types with JSON schemas and tag them to specific streams and consumer connections
+- **📊 Event Trace Log** — Real-time simulation log with payload inspection for every hop in the pipeline
+- **⚡ Adjustable Speed** — Control simulation speed from 0.25× slow-motion to 4× fast-forward
+- **💾 Project Management** — Multiple projects, local persistence, JSON export/import
+- **✨ One-Click Demo** — Load a fully-wired e-commerce order processing pipeline instantly
+- **🌗 Dark & Light Themes** — Premium glassmorphic dark mode and a clean light theme
+- **🛡️ Fully TypeScript** — End-to-end type safety across store, hooks, components, and utilities
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Framework** | [React](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/) |
+| **Build** | [Vite](https://vitejs.dev/) |
+| **Graph Engine** | [@xyflow/react](https://reactflow.dev/) (React Flow) |
+| **State** | [Zustand](https://github.com/pmndrs/zustand) |
+| **Animations** | [Framer Motion](https://www.framer.com/motion/) |
+| **Layout** | [Dagre](https://github.com/dagrejs/dagre) (auto-layout) |
+| **Icons** | [Lucide React](https://lucide.dev/) |
+| **Styling** | Vanilla CSS with custom design tokens |
 
 ## 🚀 Getting Started
 
-To run FlowWand locally:
+```bash
+# Clone
+git clone https://github.com/Sumanth1908/flow-wand.git
+cd flow-wand
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/Sumanth1908/flow-wand.git
-    cd flow-wand
-    ```
+# Install
+npm install
 
-2.  **Install dependencies**:
-    ```bash
-    npm install
-    ```
+# Run
+npm run dev
+```
 
-3.  **Launch the development server**:
-    ```bash
-    npm run dev
-    ```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-4.  **Open your browser**: Navigate to `http://localhost:5173`.
+> **Quick start:** Click the project dropdown → **✨ Load Demo** to instantly see a full e-commerce event mesh.
+
+## 📖 Usage
+
+### Creating an Architecture
+
+1. **Add Event Types** — Define your domain events (e.g., `OrderPlaced`, `PaymentProcessed`) with JSON schemas
+2. **Add Streams** — Create Kafka topics, SQS queues, or SNS topics and tag relevant events
+3. **Add Consumers** — Wire up processing services with source streams (input) and sink streams (output)
+4. **Define Flows** — Group related consumers into color-coded flows for visual organization
+
+### Running Simulations
+
+1. Open **Settings** (⚙️) in the bottom HUD to pick animation style & speed
+2. Click **Fire Event** → select a source stream → inject a JSON payload
+3. Watch the animated particles traverse your architecture in real-time
+4. Open the **Event Trace Log** drawer to inspect payloads at each hop
 
 ## 🛠️ Development
 
--   **Type Checking**: Run `npx tsc --noEmit` to check for type errors.
--   **Production Build**: Run `npm run build` to generate a production-ready bundle in the `dist/` directory.
+```bash
+# Type check
+npx tsc --noEmit
 
-## 📖 Usage Highlights
-
--   **Creating Nodes**: Use the sidebar to add Topics and Jobs. Jobs will automatically link to the topics they consume from or produce to.
--   **Defining Flows**: Create a Flow, assign it a color, and select the jobs it contains. Click the Flow in the sidebar to "spotlight" that specific architecture on the canvas.
--   **Simulating**: Click the "Simulation" button in the bottom right. Fire an event from a source topic to see the data flow through your pipeline.
+# Production build
+npm run build
+```
 
 ## 📄 License
 
-MIT © [Sumanth1908](https://github.com/Sumanth1908)
+MIT © [Sumanth Jillepally](https://github.com/Sumanth1908)
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://linkedin.com/in/sumanthjillepally">Sumanth</a>
+</p>
+
+<p align="center">
+  <a href="https://buymeacoffee.com/sumanth_js" target="_blank">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="40" />
+  </a>
+</p>

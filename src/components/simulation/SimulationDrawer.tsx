@@ -2,33 +2,25 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Activity,
-    Gauge,
-    Trash2,
-    Square,
+    ListTree,
     BookOpen,
     Zap,
-    X,
-    Send
+    X
 } from 'lucide-react';
 import useStore from '../../store/useStore';
 import SimulationLog from './SimulationLog';
-import EventDispatcher from './EventDispatcher';
+import { APP_CONFIG } from '../../lib/config';
 
 const SimulationDrawer: React.FC = () => {
     const simulation = useStore(s => s.simulation);
     const advanceSimulation = useStore(s => s.advanceSimulation);
-    const stopSimulation = useStore(s => s.stopSimulation);
-    const clearSimulation = useStore(s => s.clearSimulation);
-    const setSimulationSpeed = useStore(s => s.setSimulationSpeed);
     const rightSidebarOpen = useStore(s => s.rightSidebarOpen);
     const setRightSidebar = useStore(s => s.setRightSidebar);
 
-    const [view, setView] = useState('fire'); // 'fire' or 'log'
-
-    // Automatically switch to log view when simulation starts
+    // Automatically open right sidebar if simulation starts and it was closed
     useEffect(() => {
-        if (simulation.active) {
-            setView('log');
+        if (simulation.active && !rightSidebarOpen) {
+            setRightSidebar(true);
         }
     }, [simulation.active]);
 
@@ -62,7 +54,7 @@ const SimulationDrawer: React.FC = () => {
         : 0;
 
     return (
-        <>
+        <AnimatePresence>
             {/* Persistent Floating Trigger Button (when drawer is closed) */}
             {!rightSidebarOpen && (
                 <div className="floating-drawer-trigger">
@@ -73,154 +65,85 @@ const SimulationDrawer: React.FC = () => {
                         {simulation.active ? (
                             <div className="sim-active-dot" />
                         ) : (
-                            <Activity size={16} />
+                            <ListTree size={16} />
                         )}
-                        <span>{simulation.active ? 'Simulation Live' : 'Simulation'}</span>
+                        <span>{simulation.active ? 'Simulation Log Live' : 'Simulation Log'}</span>
                     </button>
+                    <a
+                        href={APP_CONFIG.author.buyMeACoffee}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="floating-coffee-inline"
+                        title="Buy me a coffee ☕"
+                    >
+                        <img
+                            src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg"
+                            alt="Coffee"
+                        />
+                    </a>
                 </div>
             )}
 
             {/* Main Floating Drawer */}
-            <div className={`simulation-drawer ${!rightSidebarOpen ? 'collapsed' : ''}`}>
-                <div className="sim-drawer-content">
-                    {/* Header */}
-                    <div className="sim-drawer-header">
-                        <div className="sim-drawer-title">
-                            <Activity size={18} className={`sim-icon ${simulation.active ? 'pulse' : ''}`} />
-                            <span>Simulation Center</span>
-                            {simulation.active && <span className="sim-status live">LIVE</span>}
-                        </div>
-
-                        <button
-                            className="sidebar-toggle-btn"
-                            onClick={() => setRightSidebar(false)}
-                            title="Hide"
-                        >
-                            <X size={18} />
-                        </button>
-                    </div>
-
-                    {/* View Switcher Tabs */}
-                    <div style={{ display: 'flex', padding: '0 16px', gap: '4px', borderBottom: '1px solid var(--border-subtle)' }}>
-                        <button
-                            className={`sidebar-tab ${view === 'fire' ? 'active' : ''}`}
-                            onClick={() => setView('fire')}
-                            style={{ flex: 1, '--tab-color': 'var(--emerald)' } as React.CSSProperties}
-                        >
-                            <Send size={15} />
-                            <span>Fire Event</span>
-                        </button>
-                        <button
-                            className={`sidebar-tab ${view === 'log' ? 'active' : ''}`}
-                            onClick={() => setView('log')}
-                            style={{ flex: 1, '--tab-color': 'var(--indigo)' } as React.CSSProperties}
-                        >
-                            <Activity size={15} />
-                            <span>Live Log</span>
-                        </button>
-                    </div>
-
-                    {/* Controls Row */}
-                    {(simulation.active || hasLog) && (
-                        <div className="sim-drawer-controls-row">
-                            <div className="speed-control">
-                                <Gauge size={14} />
-                                <select
-                                    value={simulation.speed}
-                                    onChange={e => setSimulationSpeed(Number(e.target.value))}
-                                    className="speed-select"
-                                    disabled={!simulation.active}
-                                >
-                                    <option value={2000}>0.5×</option>
-                                    <option value={1000}>1×</option>
-                                    <option value={500}>2×</option>
-                                    <option value={250}>4×</option>
-                                </select>
+            {rightSidebarOpen && (
+                <motion.div
+                    className="simulation-drawer"
+                    initial={{ x: 420, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: 420, opacity: 0 }}
+                    transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+                >
+                    <div className="sim-drawer-content">
+                        {/* Header */}
+                        <div className="sim-drawer-header">
+                            <div className="sim-drawer-title">
+                                <ListTree size={18} className={`sim-icon ${simulation.active ? 'pulse' : ''}`} />
+                                <span>Event Trace Log</span>
+                                {simulation.active && <span className="sim-status live">LIVE</span>}
                             </div>
 
-                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-                                {simulation.active && (
-                                    <button className="btn-stop" onClick={stopSimulation}>
-                                        <Square size={12} /><span>Stop</span>
-                                    </button>
-                                )}
-                                {!simulation.active && hasLog && (
-                                    <button className="btn-clear" onClick={clearSimulation}>
-                                        <Trash2 size={12} /><span>Clear</span>
-                                    </button>
-                                )}
-                            </div>
+                            <button
+                                className="sidebar-toggle-btn"
+                                onClick={() => setRightSidebar(false)}
+                                title="Hide"
+                            >
+                                <X size={18} />
+                            </button>
                         </div>
-                    )}
 
-                    {/* Progress Bar */}
-                    {simulation.active && (
-                        <div className="sim-progress" style={{ padding: '12px 16px 8px' }}>
-                            <div className="progress-bar">
-                                <motion.div
-                                    className="progress-fill"
-                                    animate={{ width: `${progress}%` }}
-                                    transition={{ duration: 0.3 }}
-                                />
-                            </div>
-                            <span className="progress-text">{progress}%</span>
-                        </div>
-                    )}
-
-                    {/* Body Content */}
-                    <div className="sim-drawer-log-container">
-                        <AnimatePresence mode="wait">
-                            {view === 'fire' ? (
-                                <motion.div
-                                    key="fire"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    style={{ padding: '20px' }}
-                                >
-                                    <EventDispatcher onClose={() => setView('log')} />
-                                </motion.div>
+                        {/* Body Content */}
+                        <div className="sim-drawer-log-container" style={{ height: 'calc(100% - 100px)' }}>
+                            {hasLog ? (
+                                <SimulationLog log={simulation.eventLog} />
                             ) : (
-                                <motion.div
-                                    key="log"
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: 20 }}
-                                    style={{ height: '100%' }}
-                                >
-                                    {hasLog ? (
-                                        <SimulationLog log={simulation.eventLog} />
-                                    ) : (
-                                        <div className="empty-state" style={{ padding: '60px 20px', textAlign: 'center' }}>
-                                            <Activity size={32} strokeWidth={1} style={{ opacity: 0.2, marginBottom: '16px' } as React.CSSProperties} />
-                                            <p style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
-                                                System Idle. Switch to <b>Fire Event</b> to inject data into the mesh.
-                                            </p>
-                                        </div>
-                                    )}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                    {/* Footer Stats */}
-                    {hasLog && (
-                        <div className="sim-drawer-footer">
-                            <div className="sim-summary" style={{ padding: 0, border: 'none', background: 'transparent' }}>
-                                <div className="summary-stat">
-                                    <BookOpen size={13} />
-                                    <span>{simulation.visitedTopicIds?.length || 0} topics</span>
+                                <div className="empty-state" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                                    <ListTree size={32} strokeWidth={1} style={{ opacity: 0.2, marginBottom: '16px' } as React.CSSProperties} />
+                                    <p style={{ fontSize: '13px', color: 'var(--text-dim)' }}>
+                                        Event Trace Log is empty. Open the <b>Event Dispatcher</b> from the HUD to inject data into the mesh.
+                                    </p>
                                 </div>
-                                <div className="summary-stat">
-                                    <Zap size={13} />
-                                    <span>{simulation.visitedJobIds?.length || 0} jobs</span>
+                            )}
+                        </div>
+
+                        {/* Footer Stats */}
+                        {hasLog && (
+                            <div className="sim-drawer-footer">
+                                <div className="sim-summary" style={{ padding: 0, border: 'none', background: 'transparent' }}>
+                                    <div className="summary-stat">
+                                        <BookOpen size={13} />
+                                        <span>{simulation.visitedStreamIds?.length || 0} streams</span>
+                                    </div>
+                                    <div className="summary-stat">
+                                        <Zap size={13} />
+                                        <span>{simulation.visitedConsumerIds?.length || 0} consumers</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </>
+                        )}
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 };
 

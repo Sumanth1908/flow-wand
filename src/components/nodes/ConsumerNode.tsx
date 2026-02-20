@@ -2,22 +2,24 @@ import React, { memo } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { motion } from 'framer-motion';
 
-type FlinkJobNodeData = {
+type ConsumerNodeData = {
     label: string;
     description?: string;
     sourceCount?: number;
     sinkCount?: number;
     simulationState?: 'active' | 'visited' | null;
     activeFlowColor?: string;
+    sourceEvents?: string[];
+    sinkEvents?: string[];
 };
 
-const FlinkJobNode = memo(({ data, selected }: NodeProps<Node<FlinkJobNodeData>>) => {
+const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>) => {
     const isActive = data.simulationState === 'active';
     const isVisited = data.simulationState === 'visited';
 
     return (
         <motion.div
-            className={`flink-node ${selected ? 'selected' : ''} ${isActive ? 'active' : ''} ${isVisited ? 'visited' : ''}`}
+            className={`consumer-node ${selected ? 'selected' : ''} ${isActive ? 'active' : ''} ${isVisited ? 'visited' : ''}`}
             style={data.activeFlowColor ? {
                 borderColor: data.activeFlowColor,
                 boxShadow: selected ? `0 0 0 2px ${data.activeFlowColor}` : 'none'
@@ -38,24 +40,17 @@ const FlinkJobNode = memo(({ data, selected }: NodeProps<Node<FlinkJobNodeData>>
         >
             <Handle type="target" position={Position.Left} className="handle-target" />
 
-            <div className="node-header flink-header" style={data.activeFlowColor ? { borderBottomColor: data.activeFlowColor } as React.CSSProperties : {}}>
-                <div className="node-icon flink-icon" style={data.activeFlowColor ? { color: data.activeFlowColor, background: `color-mix(in srgb, ${data.activeFlowColor} 15%, transparent)` } as React.CSSProperties : {}}>
+            <div className="node-header consumer-header" style={data.activeFlowColor ? { borderBottomColor: data.activeFlowColor } as React.CSSProperties : {}}>
+                <div className="node-icon consumer-icon" style={data.activeFlowColor ? { color: data.activeFlowColor, background: `color-mix(in srgb, ${data.activeFlowColor} 15%, transparent)` } as React.CSSProperties : {}}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                     </svg>
                 </div>
-                <span className="node-label">FLINK JOB</span>
+                <span className="node-label">CONSUMER</span>
             </div>
 
             <div className="node-body">
                 <div className="node-title">{data.label}</div>
-                <div className="node-meta">
-                    <span className="meta-badge source-badge">{data.sourceCount || 0} sources</span>
-                    <span className="meta-badge sink-badge">{data.sinkCount || 0} sinks</span>
-                </div>
-                {data.description && (
-                    <div className="node-description">{data.description}</div>
-                )}
             </div>
 
             {isActive && (
@@ -69,7 +64,7 @@ const FlinkJobNode = memo(({ data, selected }: NodeProps<Node<FlinkJobNodeData>>
 
             {isActive && (
                 <motion.div
-                    className="simulation-pulse flink-pulse"
+                    className="simulation-pulse consumer-pulse"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: [0, 1, 0] }}
                     transition={{ duration: 1.5, repeat: Infinity }}
@@ -81,5 +76,5 @@ const FlinkJobNode = memo(({ data, selected }: NodeProps<Node<FlinkJobNodeData>>
     );
 });
 
-FlinkJobNode.displayName = 'FlinkJobNode';
-export default FlinkJobNode;
+ConsumerNode.displayName = 'ConsumerNode';
+export default ConsumerNode;

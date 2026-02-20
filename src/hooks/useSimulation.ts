@@ -1,16 +1,17 @@
 /**
  * hooks/useSimulation.ts
  */
-import { SimulationStep, SimulationState, Topic, FlinkJob, StoreState } from '../types';
+import { SimulationStep, SimulationState, EventStream, Consumer, StoreState } from '../types';
 
 let _steps: SimulationStep[] = [];
 let _total = 0;
 
 const INITIAL_SIM: SimulationState = {
     active: false,
-    currentTopicId: null,
-    visitedTopicIds: [],
-    visitedJobIds: [],
+    currentStreamId: null,
+    currentEdgeId: null,
+    visitedStreamIds: [],
+    visitedConsumerIds: [],
     activeEdgeIds: [],
     eventLog: [],
     speed: 1000,
@@ -19,69 +20,75 @@ const INITIAL_SIM: SimulationState = {
     steps: [],
 };
 
-function buildSimSteps(startTopicId: string, topics: Topic[], flinkJobs: FlinkJob[], payload: any = null) {
+function buildSimSteps(startStreamId: string, streams: EventStream[], consumers: Consumer[], payloads: any[]) {
     const steps: SimulationStep[] = [];
     const log: any[] = [];
-    const queue = [{ topicId: startTopicId, currentPayload: payload }];
-    const seenTopics = new Set<string>();
-    const visitedJobs = new Set<string>();
-
     const ts = () => new Date().toISOString();
 
-    while (queue.length > 0) {
-        const item = queue.shift();
-        if (!item) continue;
-        const { topicId, currentPayload } = item;
+    for (let i = 0; i < payloads.length; i++) {
+        const payload = payloads[i];
+        const queue = [{ streamId: startStreamId, currentPayload: payload }];
+        const seenStreams = new Set<string>();
+        const visitedConsumers = new Set<string>();
 
-        if (seenTopics.has(topicId)) continue;
-        seenTopics.add(topicId);
+        while (queue.length > 0) {
+            const item = queue.shift();
+            if (!item) continue;
+            const { streamId, currentPayload } = item;
 
-        const topic = topics.find(t => t.id === topicId);
-        if (!topic) continue;
+            if (seenStreams.has(streamId)) continue;
+            seenStreams.add(streamId);
 
-        steps.push({ type: 'topic', id: topicId, message: `📨 Event arrives at topic: ${topic.name}`, payload: currentPayload });
-        log.push({
-            time: ts(),
-            type: 'topic',
-            id: topicId,
-            message: `📨 Event arrives at topic: ${topic.name}`,
-            payload: currentPayload,
-        });
+            const stream = streams.find(t => t.id === streamId);
+            if (!stream) continue;
 
-        const consumers = flinkJobs.filter(j => j.sourceTopics.includes(topicId));
-        for (const job of consumers) {
-            if (visitedJobs.has(job.id)) continue;
-            visitedJobs.add(job.id);
+            const evFlag = payloads.length > 1 ? ` [Event ${i + 1}/${payloads.length}]` : '';
 
-            const outputPayload = currentPayload
-                ? { ...currentPayload, _processedBy: job.name, _processedAt: ts() }
-                : null;
-
-            steps.push({ type: 'edge', from: topicId, to: job.id, message: '' });
-            steps.push({ type: 'job', id: job.id, message: `⚡ Flink job processes: ${job.name}`, payload: currentPayload, outputPayload });
-
+            steps.push({ type: 'stream', id: streamId, message: `📨 Event arrives at stream: ${stream.name} (${stream.type.toUpperCase()})${evFlag}`, payload: currentPayload });
             log.push({
                 time: ts(),
-                type: 'job',
-                id: job.id,
-                message: `⚡ Flink job processes event: ${job.name}`,
+                type: 'stream',
+                id: streamId,
+                message: `📨 Event arrives at stream: ${stream.name}${evFlag}`,
                 payload: currentPayload,
-                outputPayload,
             });
 
-            for (const sinkId of job.sinkTopics) {
-                steps.push({ type: 'edge', from: job.id, to: sinkId, message: '' });
-                const sinkTopic = topics.find(t => t.id === sinkId);
-                if (sinkTopic) {
-                    log.push({
-                        time: ts(),
-                        type: 'topic',
-                        id: sinkId,
-                        message: `📤 Event written to topic: ${sinkTopic.name}`,
-                        payload: outputPayload,
-                    });
+            const consumerList = consumers.filter(j => (j.sources || []).some(s => s.streamId === streamId));
+            for (const consumer of consumerList) {
+                if (visitedConsumers.has(consumer.id)) continue;
+                visitedConsumers.add(consumer.id);
+
+                const outputPayload = currentPayload
+                    ? { ...currentPayload, _processedBy: consumer.name, _processedAt: ts() }
+                    : null;
+
+                steps.push({ type: 'edge', from: streamId, to: consumer.id, message: '' });
+                steps.push({ type: 'consumer', id: consumer.id, message: `⚡ Consumer processes: ${consumer.name}${evFlag}`, payload: currentPayload, outputPayload });
+
+                log.push({
+                    time: ts(),
+                    type: 'consumer',
+                    id: consumer.id,
+                    message: `⚡ Consumer processes event: ${consumer.name}${evFlag}`,
+                    payload: currentPayload,
+                    outputPayload,
+                });
+
+                for (const sink of (consumer.sinks || [])) {
+                    const sinkId = sink.streamId;
+                    steps.push({ type: 'edge', from: consumer.id, to: sinkId, message: '' });
+                    const sinkStream = streams.find(t => t.id === sinkId);
+                    if (sinkStream) {
+                        log.push({
+                            time: ts(),
+                            type: 'stream',
+                            id: sinkId,
+                            message: `📤 Event written to stream: ${sinkStream.name}${evFlag}`,
+                            payload: outputPayload,
+                        });
+                    }
+                    if (!seenStreams.has(sinkId)) queue.push({ streamId: sinkId, currentPayload: outputPayload });
                 }
-                if (!seenTopics.has(sinkId)) queue.push({ topicId: sinkId, currentPayload: outputPayload });
             }
         }
     }
@@ -95,12 +102,13 @@ export function buildSimulationActions(
 ) {
     const getSim = () => get().simulation;
 
-    const startSimulation = (startTopicId: string, payload: any = null) => {
-        const { topics, flinkJobs } = get();
-        const { steps, log } = buildSimSteps(startTopicId, topics, flinkJobs, payload);
+    const startSimulation = (startStreamId: string, payloadOrPayloads: any | any[] = null) => {
+        const { streams, consumers } = get();
+        const payloads = Array.isArray(payloadOrPayloads) ? payloadOrPayloads : [payloadOrPayloads];
+        const { steps, log } = buildSimSteps(startStreamId, streams, consumers, payloads);
 
         if (steps.length === 0) {
-            get().showToast('No connected jobs found for this topic');
+            get().showToast('No connected consumers found for this stream');
             return;
         }
 
@@ -112,7 +120,7 @@ export function buildSimulationActions(
             simulation: {
                 ...INITIAL_SIM,
                 active: true,
-                currentTopicId: startTopicId,
+                currentStreamId: startStreamId,
                 speed: getSim().speed,
                 totalSteps: _total,
                 currentStep: 0,
@@ -131,25 +139,27 @@ export function buildSimulationActions(
         const step = _steps[sim.currentStep];
         const updates: Partial<SimulationState> = { currentStep: sim.currentStep + 1 };
 
-        if (step.type === 'topic' && step.id) {
-            updates.currentTopicId = step.id;
-            updates.visitedTopicIds = [...sim.visitedTopicIds, step.id];
+        if (step.type === 'stream' && step.id) {
+            updates.currentEdgeId = null;
+            updates.currentStreamId = step.id;
+            updates.visitedStreamIds = [...sim.visitedStreamIds, step.id];
             updates.eventLog = [
                 ...sim.eventLog,
                 {
                     time: new Date().toISOString(),
-                    type: 'topic',
+                    type: 'stream',
                     message: step.message,
                     payload: step.payload ?? null,
                 },
             ];
-        } else if (step.type === 'job' && step.id) {
-            updates.visitedJobIds = [...sim.visitedJobIds, step.id];
+        } else if (step.type === 'consumer' && step.id) {
+            updates.currentEdgeId = null;
+            updates.visitedConsumerIds = [...sim.visitedConsumerIds, step.id];
             updates.eventLog = [
                 ...sim.eventLog,
                 {
                     time: new Date().toISOString(),
-                    type: 'job',
+                    type: 'consumer',
                     message: step.message,
                     payload: step.payload ?? null,
                     outputPayload: step.outputPayload ?? null,
@@ -157,6 +167,7 @@ export function buildSimulationActions(
             ];
         } else if (step.type === 'edge' && step.from && step.to) {
             const edgeId = `${step.from}->${step.to}`;
+            updates.currentEdgeId = edgeId;
             updates.activeEdgeIds = [...sim.activeEdgeIds, edgeId];
         }
 
@@ -197,3 +208,4 @@ export function buildSimulationActions(
 }
 
 export { INITIAL_SIM };
+

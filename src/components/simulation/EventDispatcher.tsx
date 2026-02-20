@@ -13,16 +13,17 @@ interface EventDispatcherProps {
 }
 
 const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
-    const topics = useStore(s => s.topics);
+    const streams = useStore(s => s.streams);
     const startSimulation = useStore(s => s.startSimulation);
     const simulation = useStore(s => s.simulation);
 
-    const [selectedTopicId, setSelectedTopicId] = useState('');
+    const [selectedStreamId, setSelectedStreamId] = useState('');
     const [payload, setPayload] = useState(DEFAULT_PAYLOAD);
     const [payloadError, setPayloadError] = useState('');
     const [showPayload, setShowPayload] = useState(false);
+    const [eventCount, setEventCount] = useState(1);
 
-    const selectableTopics = topics;
+    const selectableStreams = streams;
 
     const validatePayload = useCallback((val: string) => {
         if (!val.trim()) { setPayloadError(''); return true; }
@@ -43,19 +44,23 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
     };
 
     const handleFire = () => {
-        if (!selectedTopicId) return;
+        if (!selectedStreamId) return;
         if (!validatePayload(payload)) return;
 
-        let resolvedPayload = null;
-        if (payload.trim()) {
+        const payloads = Array.from({ length: eventCount }).map((_, i) => {
+            if (!payload.trim()) return null;
             try {
-                resolvedPayload = JSON.parse(
-                    payload.replace(/\{\{now\}\}/g, new Date().toISOString())
+                return JSON.parse(
+                    payload.replace(/\{\{now\}\}/g, () => new Date().toISOString())
+                        .replace(/\{\{index\}\}/g, String(i + 1))
                 );
-            } catch { /* already validated above */ }
-        }
+            } catch {
+                return null;
+            }
+        });
+
         onClose();
-        startSimulation(selectedTopicId, resolvedPayload);
+        startSimulation(selectedStreamId, payloads);
     };
 
     if (simulation.active) return null;
@@ -81,25 +86,39 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
                 </div>
 
                 <p className="ed-hint">
-                    Pick a source topic and optionally attach a JSON payload to inject into your pipeline.
+                    Pick a source stream and optionally attach a JSON payload to inject into your pipeline.
                 </p>
 
-                {selectableTopics.length === 0 ? (
+                {selectableStreams.length === 0 ? (
                     <div className="ed-empty">
-                        Create a Kafka topic first to simulate events.
+                        Create an event stream first to simulate events.
                     </div>
                 ) : (
                     <>
-                        {/* Topic selector */}
+                        {/* Stream selector */}
                         <div className="ed-select-wrap">
                             <select
                                 className="ed-select"
-                                value={selectedTopicId}
-                                onChange={e => setSelectedTopicId(e.target.value)}
+                                value={selectedStreamId}
+                                onChange={e => setSelectedStreamId(e.target.value)}
                             >
-                                <option value="">— choose a topic —</option>
-                                {selectableTopics.map(t => (
-                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                <option value="">— choose a stream —</option>
+                                {selectableStreams.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name} ({t.type})</option>
+                                ))}
+                            </select>
+                            <ChevronDown size={14} className="ed-select-icon" />
+                        </div>
+
+                        {/* Event Count selector */}
+                        <div className="ed-select-wrap" style={{ marginTop: '8px' }}>
+                            <select
+                                className="ed-select"
+                                value={eventCount}
+                                onChange={e => setEventCount(Number(e.target.value))}
+                            >
+                                {Array.from({ length: 10 }).map((_, i) => (
+                                    <option key={i + 1} value={i + 1}>{i + 1} {i === 0 ? 'Event' : 'Events'}</option>
                                 ))}
                             </select>
                             <ChevronDown size={14} className="ed-select-icon" />
@@ -128,8 +147,8 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
                                 >
                                     <div className="ed-payload-header">
                                         <span className="ed-payload-label">Payload</span>
-                                        <span className="ed-template-hint" title="{{now}} will be replaced with the current ISO timestamp">
-                                            <code>{'{{now}}'}</code> → ISO timestamp
+                                        <span className="ed-template-hint" title="{{now}} will be replaced with the current ISO timestamp, and {{index}} with the event number">
+                                            <code>{'{{now}}'}</code> <code>{'{{index}}'}</code>
                                         </span>
                                         <button
                                             type="button"
@@ -158,14 +177,13 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
                             )}
                         </AnimatePresence>
 
-                        {/* Fire button */}
                         <button
                             className="btn-fire"
                             onClick={handleFire}
-                            disabled={!selectedTopicId || !!payloadError}
+                            disabled={!selectedStreamId || !!payloadError}
                         >
                             <Play size={14} />
-                            <span>Send Event</span>
+                            <span>Send {eventCount} {eventCount === 1 ? 'Event' : 'Events'}</span>
                         </button>
                     </>
                 )}

@@ -1,158 +1,210 @@
 /**
  * lib/buildGraph.ts
  * ─────────────────────────────────────────────────────────────
- * Pure function: given topics, flinkJobs, activeFlowId and
+ * Pure function: given streams, consumers, activeFlowId and
  * simulation state → returns { nodes, edges } for React Flow.
  */
-import { MarkerType, Node, Edge } from '@xyflow/react';
-import { Topic, FlinkJob, DataFlow, EventType, SimulationState } from '../types';
+import { MarkerType, Node, Edge, Position } from '@xyflow/react';
+import dagre from 'dagre';
+import { EventStream, Consumer, DataFlow, EventType, SimulationState } from '../types';
 
-const NODE_SPACING_Y = 160;
-const COL_GAP = 400;
-const ORIGIN_X = 60;
-const ORIGIN_Y = 80;
-
-interface BuildGraphParams {
-    topics: Topic[];
-    flinkJobs: FlinkJob[];
+export interface BuildGraphParams {
+    streams: EventStream[];
+    consumers: Consumer[];
     flows: DataFlow[];
     events?: EventType[];
     activeFlowId: string | null;
     simulation: SimulationState;
+    traceMode?: boolean;
 }
 
-function classifyTopics(topics: Topic[], visibleJobs: FlinkJob[]) {
-    const sourceOnly: Topic[] = [], sinkOnly: Topic[] = [], middle: Topic[] = [], isolated: Topic[] = [];
-    topics.forEach(topic => {
-        const isSource = visibleJobs.some(j => j.sourceTopics.includes(topic.id));
-        const isSink = visibleJobs.some(j => j.sinkTopics.includes(topic.id));
-        if (isSource && isSink) middle.push(topic);
-        else if (isSource) sourceOnly.push(topic);
-        else if (isSink) sinkOnly.push(topic);
-        else isolated.push(topic);
+function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'LR') {
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+    dagreGraph.setGraph({
+        rankdir: direction,
+        nodesep: 80, // vertical space between nodes
+        ranksep: 200, // horizontal space between nodes
     });
-    return { sourceOnly, sinkOnly, middle, isolated };
+
+    // Approximate dimensions based on CSS styling of stream and consumer nodes
+    const NODE_WIDTH = 260;
+    const NODE_HEIGHT = 160;
+
+    nodes.forEach((node) => {
+        dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    });
+
+    edges.forEach((edge) => {
+        dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    dagre.layout(dagreGraph);
+
+    nodes.forEach((node) => {
+        const nodeWithPosition = dagreGraph.node(node.id);
+        node.targetPosition = Position.Left;
+        node.sourcePosition = Position.Right;
+
+        // dagre sets the coordinates to the center of the node
+        node.position = {
+            x: nodeWithPosition.x - NODE_WIDTH / 2,
+            y: nodeWithPosition.y - NODE_HEIGHT / 2,
+        };
+    });
+
+    return { nodes, edges };
 }
 
-function topicSimState(topicId: string, sim: SimulationState) {
-    if (sim?.currentTopicId === topicId && sim.active) return 'active';
-    if (sim?.visitedTopicIds?.includes(topicId)) return 'visited';
+function streamSimState(streamId: string, sim: SimulationState) {
+    if (sim?.currentStreamId === streamId && sim.active) return 'active';
+    if (sim?.visitedStreamIds?.includes(streamId)) return 'visited';
     return 'idle';
 }
 
-function jobSimState(jobId: string, sim: SimulationState) {
-    if (sim?.visitedJobIds?.includes(jobId)) return 'visited';
+function consumerSimState(consumerId: string, sim: SimulationState) {
+    if (sim?.visitedConsumerIds?.includes(consumerId)) return 'visited';
     return 'idle';
 }
 
-export function buildGraph({ topics, flinkJobs, flows, events = [], activeFlowId, simulation }: BuildGraphParams): { nodes: Node[], edges: Edge[] } {
+export function buildGraph({ streams, consumers, flows, events = [], activeFlowId, simulation, traceMode }: BuildGraphParams): { nodes: Node[], edges: Edge[] } {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
 
     // Filter to active flow
-    let visibleJobs = flinkJobs;
+    let visibleConsumers = consumers;
     let activeFlowColor: string | undefined = undefined;
     if (activeFlowId) {
         const flow = flows.find(f => f.id === activeFlowId);
         if (flow) {
-            visibleJobs = flinkJobs.filter(j => flow.jobIds.includes(j.id));
+            visibleConsumers = consumers.filter(j => flow.consumerIds.includes(j.id));
             activeFlowColor = flow.color;
         }
     }
 
-    // Collect visible topic IDs
-    const visibleTopicIds = new Set<string>();
-    visibleJobs.forEach(job => {
-        job.sourceTopics.forEach(id => visibleTopicIds.add(id));
-        job.sinkTopics.forEach(id => visibleTopicIds.add(id));
+    // Collect visible stream IDs
+    const visibleStreamIds = new Set<string>();
+    visibleConsumers.forEach(consumer => {
+        (consumer.sources || []).forEach(s => visibleStreamIds.add(s.streamId));
+        (consumer.sinks || []).forEach(s => visibleStreamIds.add(s.streamId));
     });
-    if (!activeFlowId) topics.forEach(t => visibleTopicIds.add(t.id));
+    if (!activeFlowId) streams.forEach(t => visibleStreamIds.add(t.id));
 
-    const visibleTopics = topics.filter(t => visibleTopicIds.has(t.id));
-    const { sourceOnly, sinkOnly, middle, isolated } = classifyTopics(visibleTopics, visibleJobs);
+    const visibleStreams = streams.filter(t => visibleStreamIds.has(t.id));
 
-    // Layout helpers
-    const makeTopicNode = (topic: Topic, col: number, row: number): Node => ({
-        id: topic.id,
-        type: 'topic',
-        position: { x: ORIGIN_X + col * COL_GAP, y: ORIGIN_Y + row * NODE_SPACING_Y },
+    // Create Stream nodes
+    visibleStreams.forEach(t => nodes.push({
+        id: t.id,
+        type: 'stream',
+        position: { x: 0, y: 0 },
         data: {
-            label: topic.name,
-            partitions: topic.partitions,
-            description: topic.description,
-            simulationState: topicSimState(topic.id, simulation),
+            label: t.name,
+            type: t.type,
+            partitions: t.partitions,
+            description: t.description,
+            simulationState: streamSimState(t.id, simulation),
             activeFlowColor,
-            eventNames: (topic.eventIds || []).map(eid => {
+        },
+    }));
+
+    // Create Consumer nodes
+    visibleConsumers.forEach(j => nodes.push({
+        id: j.id,
+        type: 'consumer',
+        position: { x: 0, y: 0 },
+        data: {
+            label: j.name,
+            description: j.description,
+            sourceCount: (j.sources || []).length,
+            sinkCount: (j.sinks || []).length,
+            simulationState: consumerSimState(j.id, simulation),
+            activeFlowColor,
+            sourceEvents: Array.from(new Set((j.sources || []).flatMap(s => s.eventIds))).map(eid => {
+                const ev = events.find(e => e.id === eid);
+                return ev ? ev.name : null;
+            }).filter(Boolean),
+            sinkEvents: Array.from(new Set((j.sinks || []).flatMap(s => s.eventIds))).map(eid => {
                 const ev = events.find(e => e.id === eid);
                 return ev ? ev.name : null;
             }).filter(Boolean),
         },
-    });
-
-    const makeJobNode = (job: FlinkJob, row: number): Node => ({
-        id: job.id,
-        type: 'flinkJob',
-        position: { x: ORIGIN_X + COL_GAP, y: ORIGIN_Y + row * NODE_SPACING_Y },
-        data: {
-            label: job.name,
-            description: job.description,
-            sourceCount: job.sourceTopics.length,
-            sinkCount: job.sinkTopics.length,
-            simulationState: jobSimState(job.id, simulation),
-            activeFlowColor,
-        },
-    });
-
-    // Positions
-    sourceOnly.forEach((t, i) => nodes.push(makeTopicNode(t, 0, i)));
-    middle.forEach((t, i) => nodes.push(makeTopicNode(t, 0, sourceOnly.length + i)));
-    visibleJobs.forEach((j, i) => nodes.push(makeJobNode(j, i)));
-    sinkOnly.forEach((t, i) => nodes.push(makeTopicNode(t, 2, i)));
-    isolated.forEach((t, i) => nodes.push(makeTopicNode(t, 0, sourceOnly.length + middle.length + i)));
+    }));
 
     // Build edges
-    visibleJobs.forEach(job => {
-        job.sourceTopics.forEach(topicId => {
-            if (!visibleTopicIds.has(topicId)) return;
-            const edgeId = `${topicId}->${job.id}`;
+    visibleConsumers.forEach(consumer => {
+        (consumer.sources || []).forEach(source => {
+            const streamId = source.streamId;
+            if (!visibleStreamIds.has(streamId)) return;
+            const edgeId = `${streamId}->${consumer.id}`;
             const isSimActive = simulation?.activeEdgeIds?.includes(edgeId);
-            const edgeColor = isSimActive ? '#6366f1' : (activeFlowColor || 'rgba(148, 163, 184, 0.4)');
+            const isCurrent = simulation?.currentEdgeId === edgeId;
+            let simState = 'idle';
+            if (isSimActive) {
+                if (traceMode) {
+                    simState = isCurrent ? 'active' : 'visited';
+                } else {
+                    simState = 'active';
+                }
+            }
+            const edgeColor = isSimActive ? '#6366f1' : (activeFlowColor || '#b4c4d4');
 
             edges.push({
-                id: edgeId, source: topicId, target: job.id, type: 'animated',
+                id: edgeId, source: streamId, target: consumer.id, type: 'animated',
                 markerEnd: {
                     type: MarkerType.ArrowClosed,
                     color: edgeColor
                 },
                 data: {
                     label: 'source',
-                    simulationState: isSimActive ? 'active' : 'idle',
+                    simulationState: simState,
                     speed: (simulation?.speed || 1000) / 1000,
                     activeFlowColor,
+                    // Specific events for this connection
+                    eventNames: (source.eventIds || []).map(eid => {
+                        const ev = events.find(e => e.id === eid);
+                        return ev ? ev.name : null;
+                    }).filter(Boolean),
                 },
             });
         });
-        job.sinkTopics.forEach(topicId => {
-            if (!visibleTopicIds.has(topicId)) return;
-            const edgeId = `${job.id}->${topicId}`;
+        (consumer.sinks || []).forEach(sink => {
+            const streamId = sink.streamId;
+            if (!visibleStreamIds.has(streamId)) return;
+            const edgeId = `${consumer.id}->${streamId}`;
             const isSimActive = simulation?.activeEdgeIds?.includes(edgeId);
-            const edgeColor = isSimActive ? '#6366f1' : (activeFlowColor || 'rgba(148, 163, 184, 0.4)');
+            const isCurrent = simulation?.currentEdgeId === edgeId;
+            let simState = 'idle';
+            if (isSimActive) {
+                if (traceMode) {
+                    simState = isCurrent ? 'active' : 'visited';
+                } else {
+                    simState = 'active';
+                }
+            }
+            const edgeColor = isSimActive ? '#6366f1' : (activeFlowColor || '#b4c4d4');
 
             edges.push({
-                id: edgeId, source: job.id, target: topicId, type: 'animated',
+                id: edgeId, source: consumer.id, target: streamId, type: 'animated',
                 markerEnd: {
                     type: MarkerType.ArrowClosed,
                     color: edgeColor
                 },
                 data: {
                     label: 'sink',
-                    simulationState: isSimActive ? 'active' : 'idle',
+                    simulationState: simState,
                     speed: (simulation?.speed || 1000) / 1000,
                     activeFlowColor,
+                    // Specific events for this connection
+                    eventNames: (sink.eventIds || []).map(eid => {
+                        const ev = events.find(e => e.id === eid);
+                        return ev ? ev.name : null;
+                    }).filter(Boolean),
                 },
             });
         });
     });
 
-    return { nodes, edges };
+    return getLayoutedElements(nodes, edges);
 }
+
