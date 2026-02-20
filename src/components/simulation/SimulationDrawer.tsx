@@ -5,7 +5,9 @@ import {
     ListTree,
     BookOpen,
     Zap,
-    X
+    X,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
 import useStore from '../../store/useStore';
 import SimulationLog from './SimulationLog';
@@ -16,6 +18,7 @@ const SimulationDrawer: React.FC = () => {
     const advanceSimulation = useStore(s => s.advanceSimulation);
     const rightSidebarOpen = useStore(s => s.rightSidebarOpen);
     const setRightSidebar = useStore(s => s.setRightSidebar);
+    const [isTriggerExpanded, setIsTriggerExpanded] = useState(false);
 
     // Automatically open right sidebar if simulation starts and it was closed
     useEffect(() => {
@@ -57,30 +60,40 @@ const SimulationDrawer: React.FC = () => {
         <AnimatePresence>
             {/* Persistent Floating Trigger Button (when drawer is closed) */}
             {!rightSidebarOpen && (
-                <div className="floating-drawer-trigger">
+                <div className={`floating-drawer-trigger ${isTriggerExpanded ? 'expanded' : ''}`}>
                     <button
-                        className="btn-open-sim"
-                        onClick={() => setRightSidebar(true)}
+                        className="mobile-trigger-toggle"
+                        onClick={() => setIsTriggerExpanded(!isTriggerExpanded)}
+                        title="Toggle Menu"
                     >
-                        {simulation.active ? (
-                            <div className="sim-active-dot" />
-                        ) : (
-                            <ListTree size={16} />
-                        )}
-                        <span>{simulation.active ? 'Simulation Log Live' : 'Simulation Log'}</span>
+                        {isTriggerExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
-                    <a
-                        href={APP_CONFIG.author.buyMeACoffee}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="floating-coffee-inline"
-                        title="Buy me a coffee ☕"
-                    >
-                        <img
-                            src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg"
-                            alt="Coffee"
-                        />
-                    </a>
+
+                    <div className="trigger-items">
+                        <button
+                            className="btn-open-sim"
+                            onClick={() => { setRightSidebar(true); setIsTriggerExpanded(false); }}
+                        >
+                            {simulation.active ? (
+                                <div className="sim-active-dot" />
+                            ) : (
+                                <ListTree size={16} />
+                            )}
+                            <span>{simulation.active ? 'Simulation Log Live' : 'Simulation Log'}</span>
+                        </button>
+                        <a
+                            href={APP_CONFIG.author.buyMeACoffee}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="floating-coffee-inline"
+                            title="Buy me a coffee ☕"
+                        >
+                            <img
+                                src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg"
+                                alt="Coffee"
+                            />
+                        </a>
+                    </div>
                 </div>
             )}
 

@@ -87,6 +87,7 @@ const Sidebar: React.FC = () => {
     const importProject = useStore(s => s.importProject);
     const lastSavedAt = useStore(s => s.lastSavedAt);
     const loadDemo = useStore(s => s.loadDemo);
+    const resetApp = useStore(s => s.resetApp);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
@@ -258,6 +259,19 @@ const Sidebar: React.FC = () => {
                         }}>
                             <Sparkles size={14} />
                             <span>Load Demo</span>
+                        </button>
+                        <div style={{ height: '1px', background: 'var(--border-default)', margin: '4px 8px' }} />
+                        <button className="project-dropdown-new" style={{ color: 'var(--red)' }} onClick={() => {
+                            setProjectDropdownOpen(false);
+                            openModal('confirm', {
+                                title: 'Reset App Data',
+                                message: 'Are you sure? This will permanently delete all projects, streams, consumers, and settings.',
+                                confirmLabel: 'Reset Everything',
+                                onConfirm: resetApp
+                            });
+                        }}>
+                            <Trash2 size={14} />
+                            <span>Reset App Data</span>
                         </button>
                     </motion.div>
                 )}

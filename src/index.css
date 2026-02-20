@@ -141,8 +141,8 @@ body {
 
 .app {
   display: flex;
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
+  width: 100%;
   overflow: hidden;
   background: var(--bg-tertiary);
   padding: 8px;
@@ -2779,5 +2779,320 @@ body {
 .floating-coffee-inline:hover {
   opacity: 1;
   transform: scale(1.1);
-  box-shadow: 0 4px 20px rgba(255, 221, 0, 0.4);
+}
+
+/* Toggle for mobile floating trigger */
+.mobile-trigger-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s;
+}
+
+.mobile-trigger-toggle:hover {
+  background: var(--bg-tertiary);
+  color: var(--indigo-light);
+}
+
+.trigger-items {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── HUD & Controls Canvas ──────────────────────────────── */
+
+.hud-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-elevated);
+  padding: 6px;
+  border-radius: 100px;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  pointer-events: all;
+}
+
+.hud-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 100px;
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: all;
+  transition: all 0.2s;
+}
+
+.hud-btn.fire-btn {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.hud-btn.fire-btn.active {
+  background: color-mix(in srgb, var(--emerald) 20%, transparent);
+  color: var(--emerald);
+}
+
+.hud-btn.stop-btn {
+  background: color-mix(in srgb, var(--rose) 15%, transparent);
+  color: var(--rose);
+}
+
+.hud-btn.clear-btn {
+  color: var(--text-secondary);
+}
+
+.hud-btn.snap-btn {
+  padding: 6px 12px;
+}
+
+.hud-btn.snap-btn.active {
+  background: color-mix(in srgb, var(--purple) 20%, transparent);
+  color: var(--purple);
+}
+
+.hud-btn.settings-btn.active {
+  background: var(--bg-tertiary);
+}
+
+.settings-dots-wrapper {
+  display: flex;
+  gap: 4px;
+  margin-left: -2px;
+}
+
+.settings-active-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--indigo);
+  align-self: center;
+}
+
+.hud-popup-container {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: all;
+  z-index: 1001;
+}
+
+.hud-popup-inner {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-strong);
+  overflow: hidden;
+}
+
+.hud-settings-popup {
+  display: flex;
+  gap: 12px;
+  background: var(--bg-elevated);
+  backdrop-filter: blur(8px);
+  padding: 10px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  pointer-events: all;
+}
+
+.hud-settings-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.display-settings-col {
+  border-right: 1px solid var(--border-default);
+  padding-right: 12px;
+}
+
+.hud-settings-col:last-child {
+  padding-left: 4px;
+}
+
+.hud-settings-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+/* ── Mobile Responsive ──────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .app {
+    padding: 4px;
+    gap: 4px;
+  }
+
+  /* Sidebar collapses automatically */
+  .sidebar {
+    position: absolute;
+    z-index: 50;
+    height: calc(100% - 8px);
+    left: 4px;
+    top: 4px;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .sidebar.collapsed {
+    width: 40px;
+  }
+
+  /* Move floating trigger below the sidebar collapse button area and stack vertically */
+  .floating-drawer-trigger {
+    top: 12px;
+    right: 12px;
+    gap: 8px;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .mobile-trigger-toggle {
+    display: flex;
+  }
+
+  .floating-drawer-trigger .trigger-items {
+    display: none;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .floating-drawer-trigger.expanded .trigger-items {
+    display: flex;
+    animation: triggerSlide 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  @keyframes triggerSlide {
+    0% {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.95);
+      transform-origin: top right;
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      transform-origin: top right;
+    }
+  }
+
+  .btn-open-sim {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+  }
+
+  .btn-open-sim span {
+    display: none;
+  }
+
+  /* Simulation drawer: full-width on mobile */
+  .simulation-drawer {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+    max-width: none;
+  }
+
+  /* Coffee button smaller on mobile */
+  .floating-coffee-inline {
+    width: 34px;
+    height: 34px;
+  }
+
+  .floating-coffee-inline img {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Bottom HUD: more compact on mobile */
+  .canvas-settings-panel {
+    max-width: calc(100vw - 20px);
+    margin-bottom: 8px !important;
+  }
+
+  .hud-toolbar {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .hud-btn {
+    padding: 8px 10px;
+  }
+
+  .hud-btn-text {
+    display: none;
+  }
+
+  .settings-dots-wrapper {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+  }
+
+  /* Popups on mobile */
+  .hud-settings-popup {
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  .display-settings-col {
+    border-right: none;
+    border-bottom: 1px solid var(--border-default);
+    padding-right: 0;
+    padding-bottom: 12px;
+  }
+
+  .hud-settings-col:last-child {
+    padding-left: 0;
+  }
+
+  /* Zoom controls mobile */
+  .react-flow__controls {
+    bottom: 80px !important;
+    /* Move above the HUD */
+    left: 8px !important;
+  }
+
+  .react-flow__controls button {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .react-flow__controls button svg {
+    max-width: 18px !important;
+    max-height: 18px !important;
+  }
+
+  .react-flow__minimap {
+    bottom: 80px !important;
+    /* Move above the HUD */
+    right: 8px !important;
+  }
 }

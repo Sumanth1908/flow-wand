@@ -144,5 +144,6 @@ export interface StoreState {
     setEdgeStyle: (style: EdgeStyle) => void;
     setEdgeShape: (shape: EdgeShape) => void;
     loadDemo: () => void;
+    resetApp: () => void;
 }
 

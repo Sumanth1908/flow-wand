@@ -228,6 +228,22 @@ const useStore = create<StoreState>((set, get) => {
             get().switchProject(id);
             showToast('Demo project loaded 🚀');
         },
+
+        resetApp: () => {
+            localStorage.clear();
+            set({
+                projects: [],
+                activeProjectId: null,
+                streams: [],
+                consumers: [],
+                flows: [],
+                events: [],
+                activeFlowId: null,
+                simulation: { ...get().simulation, active: false, eventLog: [], visitedStreamIds: [], visitedConsumerIds: [], activeEdgeIds: [] },
+                lastSavedAt: null,
+            });
+            showToast('Application reset to fresh state 🧹');
+        },
     };
 });
 

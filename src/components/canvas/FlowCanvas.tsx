@@ -1,25 +1,27 @@
 /**
  * components/canvas/FlowCanvas.tsx
  */
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import {
     ReactFlow, Controls, MiniMap, Background,
     BackgroundVariant, useNodesState, useEdgesState, Panel,
-    Node, Edge, FitViewOptions, ProOptions,
+    Node, Edge, FitViewOptions, ProOptions, useReactFlow, ReactFlowProvider,
 } from '@xyflow/react';
-import { Gauge, Footprints, Play, Square, Settings2, Send, Trash2 } from 'lucide-react';
+import { Gauge, Footprints, Play, Square, Settings2, Send, Trash2, Camera } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 import StreamNode from '../nodes/StreamNode';
 import ConsumerNode from '../nodes/ConsumerNode';
 import AnimatedEdge from '../edges/AnimatedEdge';
 import EventDispatcher from '../simulation/EventDispatcher';
+import SnapshotPanel from './SnapshotPanel';
 import useStore from '../../store/useStore';
 import { buildGraph } from '../../lib/buildGraph';
+import { toPng } from 'html-to-image';
 
 const nodeTypes = { stream: StreamNode, consumer: ConsumerNode };
 const edgeTypes = { animated: AnimatedEdge };
 
-const FlowCanvas: React.FC = () => {
+const FlowCanvasInner: React.FC = () => {
     const streams = useStore(s => s.streams);
     const consumers = useStore(s => s.consumers);
     const flows = useStore(s => s.flows);
@@ -41,6 +43,7 @@ const FlowCanvas: React.FC = () => {
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isFireEventOpen, setIsFireEventOpen] = useState(false);
+    const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
 
     const { nodes: initialNodes, edges: initialEdges } = useMemo(
         () => buildGraph({ streams, consumers, flows, events, activeFlowId, simulation, traceMode }),
@@ -61,8 +64,21 @@ const FlowCanvas: React.FC = () => {
 
     const activeFlow = activeFlowId ? flows.find(f => f.id === activeFlowId) : null;
 
-    const fitViewOptions: FitViewOptions = { padding: 0.3 };
+    const fitViewOptions: FitViewOptions = { padding: 0.3, maxZoom: 1.5 };
     const proOptions: ProOptions = { hideAttribution: true };
+    const { fitView } = useReactFlow();
+    const canvasRef = useRef<HTMLDivElement>(null);
+
+    // Fit view whenever nodes change (new project loaded, dagre re-layout)
+    const prevNodeCountRef = useRef(0);
+    useEffect(() => {
+        if (nodes.length > 0 && nodes.length !== prevNodeCountRef.current) {
+            // Small delay so dagre layout positions are applied first
+            const timer = setTimeout(() => fitView(fitViewOptions), 50);
+            prevNodeCountRef.current = nodes.length;
+            return () => clearTimeout(timer);
+        }
+    }, [nodes.length, fitView]);
 
     const onNodeClick = (event: React.MouseEvent, node: Node) => {
         if (node.type === 'stream') {
@@ -75,7 +91,7 @@ const FlowCanvas: React.FC = () => {
     };
 
     return (
-        <div className="flow-canvas">
+        <div className="flow-canvas" ref={canvasRef}>
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -91,6 +107,8 @@ const FlowCanvas: React.FC = () => {
                 nodesDraggable={!isLocked}
                 nodesConnectable={!isLocked}
                 elementsSelectable={!isLocked}
+                minZoom={0.1}
+                maxZoom={3}
                 className="react-flow-dark"
             >
                 <Controls
@@ -134,10 +152,10 @@ const FlowCanvas: React.FC = () => {
 
                         {/* Expandable Settings Menu */}
                         {isMenuOpen && (
-                            <div style={{ display: 'flex', gap: '12px', background: 'var(--bg-elevated)', backdropFilter: 'blur(8px)', padding: '10px 16px', borderRadius: '16px', border: '1px solid var(--border-strong)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)', pointerEvents: 'all' }}>
+                            <div className="hud-settings-popup">
                                 {/* Display Settings */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderRight: '1px solid var(--border-default)', paddingRight: '12px' }}>
-                                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700 }}>Appearance</span>
+                                <div className="hud-settings-col display-settings-col">
+                                    <span className="hud-settings-title">Appearance</span>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', width: '60px' }}>Line Style</span>
                                         <select
@@ -171,8 +189,8 @@ const FlowCanvas: React.FC = () => {
                                 </div>
 
                                 {/* Simulation Settings */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '4px' }}>
-                                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700 }}>Simulation</span>
+                                <div className="hud-settings-col">
+                                    <span className="hud-settings-title">Simulation</span>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', width: '40px' }}>Speed</span>
                                         <div style={{ display: 'flex', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border-default)', overflow: 'hidden' }}>
@@ -200,6 +218,7 @@ const FlowCanvas: React.FC = () => {
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: 'auto' }}>
                                         <button
+                                            className="hud-trace-btn"
                                             onClick={() => setTraceMode(!traceMode)}
                                             style={{
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%',
@@ -220,64 +239,78 @@ const FlowCanvas: React.FC = () => {
                         )}
 
                         {/* Main HUD Toolbar */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-elevated)', padding: '6px', borderRadius: '100px', border: '1px solid var(--border-strong)', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', pointerEvents: 'all' }}>
+                        <div className="hud-toolbar">
                             <div style={{ position: 'relative' }}>
                                 {/* Event Dispatcher popup */}
                                 {isFireEventOpen && (
-                                    <div style={{ position: 'absolute', bottom: 'calc(100% + 12px)', left: '50%', transform: 'translateX(-50%)', width: '320px', pointerEvents: 'all', zIndex: 1001 }}>
-                                        <div style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)', borderRadius: '12px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-strong)', overflow: 'hidden' }}>
+                                    <div className="hud-popup-container">
+                                        <div className="hud-popup-inner">
                                             <EventDispatcher onClose={() => setIsFireEventOpen(false)} />
                                         </div>
                                     </div>
                                 )}
                                 <button
-                                    className={`sidebar-tab ${isFireEventOpen ? 'active' : ''}`}
-                                    onClick={() => { setIsFireEventOpen(!isFireEventOpen); setIsMenuOpen(false); }}
-                                    style={{ '--tab-color': 'var(--emerald)', padding: '6px 16px', borderRadius: '100px', background: isFireEventOpen ? 'color-mix(in srgb, var(--emerald) 20%, transparent)' : 'transparent', color: isFireEventOpen ? 'var(--emerald)' : 'var(--text-primary)' } as React.CSSProperties}
+                                    className={`sidebar-tab hud-btn fire-btn ${isFireEventOpen ? 'active' : ''}`}
+                                    onClick={() => { setIsFireEventOpen(!isFireEventOpen); setIsMenuOpen(false); setIsSnapshotOpen(false); }}
+                                    style={{ '--tab-color': 'var(--emerald)' } as React.CSSProperties}
                                 >
                                     <Send size={15} />
-                                    <span>Fire Event</span>
+                                    <span className="hud-btn-text">Fire Event</span>
                                 </button>
                             </div>
 
                             {(simulation.active || simulation.visitedStreamIds.length > 0 || simulation.visitedConsumerIds.length > 0) && (
                                 <button
+                                    className="hud-btn stop-btn"
                                     onClick={() => { stopSimulation(); }}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', borderRadius: '100px', background: 'color-mix(in srgb, var(--rose) 15%, transparent)', color: 'var(--rose)', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
                                 >
                                     <Square size={14} fill="currentColor" />
-                                    <span>Stop</span>
+                                    <span className="hud-btn-text">Stop</span>
                                 </button>
                             )}
 
                             {!simulation.active && simulation.visitedStreamIds.length === 0 && (simulation.eventLog?.length > 0) && (
                                 <button
+                                    className="hud-btn clear-btn"
                                     onClick={clearSimulation}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', borderRadius: '100px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
                                 >
                                     <Trash2 size={14} />
-                                    <span>Clear Log</span>
+                                    <span className="hud-btn-text">Clear Log</span>
                                 </button>
                             )}
 
                             <div style={{ width: '1px', height: '24px', background: 'var(--border-default)', margin: '0 4px' }} />
 
+                            <div style={{ position: 'relative' }}>
+                                {/* Snapshot popup */}
+                                {isSnapshotOpen && (
+                                    <div className="hud-popup-container">
+                                        <div className="hud-popup-inner">
+                                            <SnapshotPanel onClose={() => setIsSnapshotOpen(false)} />
+                                        </div>
+                                    </div>
+                                )}
+                                <button
+                                    className={`sidebar-tab hud-btn snap-btn ${isSnapshotOpen ? 'active' : ''}`}
+                                    onClick={() => { setIsSnapshotOpen(!isSnapshotOpen); setIsFireEventOpen(false); setIsMenuOpen(false); }}
+                                    style={{ '--tab-color': 'var(--purple)' } as React.CSSProperties}
+                                    title="Export canvas as PNG"
+                                >
+                                    <Camera size={15} />
+                                </button>
+                            </div>
+
+                            <div style={{ width: '1px', height: '24px', background: 'var(--border-default)', margin: '0 4px' }} />
+
                             <button
-                                onClick={() => { setIsMenuOpen(!isMenuOpen); setIsFireEventOpen(false); }}
-                                style={{
-                                    display: 'flex', alignItems: 'center', gap: '8px',
-                                    background: isMenuOpen ? 'var(--bg-tertiary)' : 'transparent', color: 'var(--text-primary)',
-                                    border: 'none', borderRadius: '100px',
-                                    padding: '6px 16px', fontSize: '13px', fontWeight: 600,
-                                    cursor: 'pointer', pointerEvents: 'all',
-                                    transition: 'all 0.2s'
-                                }}
+                                className={`hud-btn settings-btn ${isMenuOpen ? 'active' : ''}`}
+                                onClick={() => { setIsMenuOpen(!isMenuOpen); setIsFireEventOpen(false); setIsSnapshotOpen(false); }}
                             >
                                 <Settings2 size={16} />
-                                <span>Settings</span>
-                                <div style={{ display: 'flex', gap: '4px', marginLeft: '-2px' }}>
+                                <span className="hud-btn-text">Settings</span>
+                                <div className="settings-dots-wrapper">
                                     {(simulation.speed !== 1000 || traceMode || edgeStyle !== 'solid' || edgeShape !== 'circle') && (
-                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--indigo)', alignSelf: 'center' }} />
+                                        <span className="settings-active-dot" />
                                     )}
                                 </div>
                             </button>
@@ -303,5 +336,12 @@ const FlowCanvas: React.FC = () => {
         </div >
     );
 };
+
+// Wrap in ReactFlowProvider so useReactFlow() works
+const FlowCanvas: React.FC = () => (
+    <ReactFlowProvider>
+        <FlowCanvasInner />
+    </ReactFlowProvider>
+);
 
 export default FlowCanvas;
