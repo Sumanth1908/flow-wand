@@ -21,6 +21,8 @@ interface AppPrefs {
     theme: string;
     edgeStyle?: string;
     edgeShape?: string;
+    layoutDirection?: string;
+    edgePathStyle?: string;
 }
 
 // ── helpers ─────────────────────────────────────────────────
@@ -42,7 +44,7 @@ const write = (key: string, val: any) => {
 };
 
 // ── Preferences ─────────────────────────────────────────────
-export const getPrefs = (): AppPrefs => read(KEYS.PREFS, { activeProjectId: null, theme: 'dark', edgeStyle: 'solid', edgeShape: 'circle' });
+export const getPrefs = (): AppPrefs => read(KEYS.PREFS, { activeProjectId: null, theme: 'dark', edgeStyle: 'solid', edgeShape: 'circle', layoutDirection: 'LR', edgePathStyle: 'bezier' });
 export const savePrefs = (prefs: AppPrefs) => write(KEYS.PREFS, prefs);
 
 // ── Projects ─────────────────────────────────────────────────

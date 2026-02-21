@@ -1831,12 +1831,16 @@ body {
   background: var(--bg-tertiary);
 }
 
-.event-entry.topic {
+.event-entry.stream {
   color: var(--indigo-light);
 }
 
-.event-entry.job {
+.event-entry.consumer {
   color: var(--amber-light);
+}
+
+.event-entry.warning {
+  color: var(--red-light);
 }
 
 .event-icon {
@@ -1849,14 +1853,19 @@ body {
   flex-shrink: 0;
 }
 
-.event-entry.topic .event-icon {
+.event-entry.stream .event-icon {
   background: color-mix(in srgb, var(--indigo) 12%, transparent);
   color: var(--indigo-light);
 }
 
-.event-entry.job .event-icon {
+.event-entry.consumer .event-icon {
   background: color-mix(in srgb, var(--amber) 12%, transparent);
   color: var(--amber-light);
+}
+
+.event-entry.warning .event-icon {
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  color: var(--red-light);
 }
 
 .event-content {

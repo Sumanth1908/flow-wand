@@ -9,6 +9,8 @@ export interface Project {
 export type StreamType = 'kafka' | 'sqs' | 'sns' | 'other';
 export type EdgeStyle = 'solid' | 'dashed' | 'dotted';
 export type EdgeShape = 'circle' | 'square' | 'diamond' | 'star' | 'pizza' | 'ghost' | 'heart' | 'alien' | 'rocket';
+export type LayoutDirection = 'LR' | 'TB';
+export type EdgePathStyle = 'bezier' | 'step' | 'straight';
 
 export interface EventStream {
     id: string;
@@ -101,6 +103,8 @@ export interface StoreState {
     traceMode: boolean;
     edgeStyle: EdgeStyle;
     edgeShape: EdgeShape;
+    layoutDirection: LayoutDirection;
+    edgePathStyle: EdgePathStyle;
 
     init: () => void;
     toggleTheme: () => void;
@@ -147,6 +151,8 @@ export interface StoreState {
     setTraceMode: (enabled: boolean) => void;
     setEdgeStyle: (style: EdgeStyle) => void;
     setEdgeShape: (shape: EdgeShape) => void;
+    setLayoutDirection: (layout: LayoutDirection) => void;
+    setEdgePathStyle: (style: EdgePathStyle) => void;
     loadDemo: () => void;
     resetApp: () => void;
 }

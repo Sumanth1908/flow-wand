@@ -16,6 +16,7 @@ export interface BuildGraphParams {
     activeFlowId: string | null;
     simulation: SimulationState;
     traceMode?: boolean;
+    layoutDirection?: string;
 }
 
 function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'LR') {
@@ -42,10 +43,12 @@ function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'LR') {
 
     dagre.layout(dagreGraph);
 
+    const isHorizontal = direction === 'LR';
+
     nodes.forEach((node) => {
         const nodeWithPosition = dagreGraph.node(node.id);
-        node.targetPosition = Position.Left;
-        node.sourcePosition = Position.Right;
+        node.targetPosition = isHorizontal ? Position.Left : Position.Top;
+        node.sourcePosition = isHorizontal ? Position.Right : Position.Bottom;
 
         // dagre sets the coordinates to the center of the node
         node.position = {
@@ -68,7 +71,7 @@ function consumerSimState(consumerId: string, sim: SimulationState) {
     return 'idle';
 }
 
-export function buildGraph({ streams, consumers, flows, events = [], activeFlowId, simulation, traceMode }: BuildGraphParams): { nodes: Node[], edges: Edge[] } {
+export function buildGraph({ streams, consumers, flows, events = [], activeFlowId, simulation, traceMode, layoutDirection = 'LR' }: BuildGraphParams): { nodes: Node[], edges: Edge[] } {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
 
@@ -207,6 +210,6 @@ export function buildGraph({ streams, consumers, flows, events = [], activeFlowI
         });
     });
 
-    return getLayoutedElements(nodes, edges);
+    return getLayoutedElements(nodes, edges, layoutDirection);
 }
 

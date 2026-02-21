@@ -137,8 +137,12 @@ const consumers: Consumer[] = [
             { streamId: 'stream-orders', eventIds: ['evt-order-placed'] },
             { streamId: 'stream-payments', eventIds: ['evt-payment-processed'] },
             { streamId: 'stream-shipments', eventIds: ['evt-shipment-created'] },
+            { streamId: 'stream-notifications', eventIds: ['evt-notification-sent'] }
         ],
-        sinks: [{ streamId: 'stream-analytics', eventIds: ['evt-analytics-event'] }],
+        sinks: [
+            { streamId: 'stream-analytics', eventIds: ['evt-analytics-event'] },
+            { streamId: 'stream-orders', eventIds: ['evt-order-placed'] }
+        ],
     },
 ];
 

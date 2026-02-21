@@ -10,7 +10,7 @@ import { buildConsumerActions } from '../hooks/useConsumers';
 import { buildFlowActions } from '../hooks/useFlows';
 import { buildEventActions } from '../hooks/useEvents';
 import { buildSimulationActions, INITIAL_SIM } from '../hooks/useSimulation';
-import { StoreState, EventStream, Consumer, DataFlow, EventType, Project, EdgeStyle, EdgeShape } from '../types';
+import { StoreState, EventStream, Consumer, DataFlow, EventType, Project, EdgeStyle, EdgeShape, LayoutDirection, EdgePathStyle } from '../types';
 import { DEMO_DATA } from '../lib/demoData';
 
 const useStore = create<StoreState>((set, get) => {
@@ -60,6 +60,8 @@ const useStore = create<StoreState>((set, get) => {
         traceMode: false,
         edgeStyle: 'solid',
         edgeShape: 'circle',
+        layoutDirection: 'LR',
+        edgePathStyle: 'bezier',
 
         // ── App init ─────────────────────────────────────────────
         init: () => {
@@ -68,8 +70,10 @@ const useStore = create<StoreState>((set, get) => {
             const theme = (prefs.theme as 'dark' | 'light') || 'dark';
             const edgeStyle = (prefs.edgeStyle as EdgeStyle) || 'solid';
             const edgeShape = (prefs.edgeShape as EdgeShape) || 'circle';
+            const layoutDirection = (prefs.layoutDirection as LayoutDirection) || 'LR';
+            const edgePathStyle = (prefs.edgePathStyle as EdgePathStyle) || 'bezier';
             document.documentElement.setAttribute('data-theme', theme);
-            set({ projects, theme, edgeStyle, edgeShape });
+            set({ projects, theme, edgeStyle, edgeShape, layoutDirection, edgePathStyle });
             const targetId = prefs.activeProjectId && projects.some(p => p.id === prefs.activeProjectId)
                 ? prefs.activeProjectId : projects[0]?.id;
             if (targetId) get().switchProject(targetId);
@@ -214,6 +218,14 @@ const useStore = create<StoreState>((set, get) => {
         setEdgeShape: (shape) => {
             storage.savePrefs({ ...storage.getPrefs(), edgeShape: shape });
             set({ edgeShape: shape });
+        },
+        setLayoutDirection: (layout) => {
+            storage.savePrefs({ ...storage.getPrefs(), layoutDirection: layout });
+            set({ layoutDirection: layout });
+        },
+        setEdgePathStyle: (style) => {
+            storage.savePrefs({ ...storage.getPrefs(), edgePathStyle: style });
+            set({ edgePathStyle: style });
         },
 
         loadDemo: () => {

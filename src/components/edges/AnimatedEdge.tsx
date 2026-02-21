@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { BaseEdge, getBezierPath, EdgeLabelRenderer, EdgeProps } from '@xyflow/react';
+import { BaseEdge, getBezierPath, getStraightPath, getSmoothStepPath, EdgeLabelRenderer, EdgeProps } from '@xyflow/react';
 import useStore from '../../store/useStore';
 
 type AnimatedEdgeData = {
-    simulationState?: 'active' | 'visited' | 'idle' | null;
+    simulationState?: 'active' | 'visited' | 'idle' | 'warning' | null;
     activeFlowColor?: string;
     speed?: number;
     label?: string;
@@ -120,25 +120,33 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
     markerEnd,
     style,
 }) => {
-    const [edgePath, labelX, labelY] = getBezierPath({
-        sourceX,
-        sourceY,
-        sourcePosition,
-        targetX,
-        targetY,
-        targetPosition,
-    });
+    // Global style settings 
+    const edgeStyleMode = useStore(s => s.edgeStyle);
+    const edgeShape = useStore(s => s.edgeShape);
+    const edgePathStyle = useStore(s => s.edgePathStyle);
+
+    const pathParams = {
+        sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition
+    };
+
+    let edgePath, labelX, labelY;
+    if (edgePathStyle === 'straight') {
+        [edgePath, labelX, labelY] = getStraightPath(pathParams);
+    } else if (edgePathStyle === 'step') {
+        [edgePath, labelX, labelY] = getSmoothStepPath({ ...pathParams, borderRadius: 0 });
+    } else {
+        [edgePath, labelX, labelY] = getBezierPath(pathParams);
+    }
 
     const [isHovered, setIsHovered] = useState(false);
     const edgeData = data as AnimatedEdgeData | undefined;
     const isActive = edgeData?.simulationState === 'active';
     const isVisited = edgeData?.simulationState === 'visited';
-    const flowColor = edgeData?.activeFlowColor || '#6366f1';
-    const hasEvents = edgeData?.eventNames && edgeData.eventNames.length > 0;
+    const isWarning = edgeData?.simulationState === 'warning';
 
-    // Global style settings 
-    const edgeStyleMode = useStore(s => s.edgeStyle);
-    const edgeShape = useStore(s => s.edgeShape);
+    // Default flow color, overridden by warning cycle
+    const flowColor = isWarning ? '#ef4444' : (edgeData?.activeFlowColor || '#6366f1');
+    const hasEvents = edgeData?.eventNames && edgeData.eventNames.length > 0;
 
     const dashArray = edgeStyleMode === 'dashed' ? '8, 8' : edgeStyleMode === 'dotted' ? '3, 4' : 'none';
 
@@ -149,11 +157,11 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
                 markerEnd={markerEnd}
                 style={{
                     ...style,
-                    stroke: isActive || isVisited ? flowColor : (isHovered ? '#e2e8f0' : (edgeData?.activeFlowColor || '#b4c4d4')),
-                    strokeWidth: isActive || isVisited ? 3 : (isHovered ? 3 : 2),
+                    stroke: isActive || isVisited || isWarning ? flowColor : (isHovered ? '#e2e8f0' : (edgeData?.activeFlowColor || '#b4c4d4')),
+                    strokeWidth: isActive || isVisited || isWarning ? 3 : (isHovered ? 3 : 2),
                     strokeDasharray: dashArray,
-                    opacity: isVisited && !isActive ? 0.6 : 1,
-                    filter: isActive ? `drop-shadow(0 0 6px ${flowColor})` : 'none',
+                    opacity: (isVisited || isWarning) && !isActive ? 0.6 : 1,
+                    filter: isActive || isWarning ? `drop-shadow(0 0 6px ${flowColor})` : 'none',
                     transition: 'stroke 0.3s, stroke-width 0.3s, filter 0.3s, opacity 0.3s',
                 }}
             />
@@ -169,7 +177,7 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
                 style={{ cursor: 'pointer' }}
             />
 
-            {isActive && (
+            {(isActive || isWarning) && (
                 <MovingDots edgePath={edgePath} flowColor={flowColor} speed={edgeData?.speed || 1} shape={edgeShape} />
             )}
 

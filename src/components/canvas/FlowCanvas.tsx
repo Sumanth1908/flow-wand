@@ -35,6 +35,10 @@ const FlowCanvasInner: React.FC = () => {
     const setEdgeStyle = useStore(s => s.setEdgeStyle);
     const edgeShape = useStore(s => s.edgeShape);
     const setEdgeShape = useStore(s => s.setEdgeShape);
+    const layoutDirection = useStore(s => s.layoutDirection);
+    const setLayoutDirection = useStore(s => s.setLayoutDirection);
+    const edgePathStyle = useStore(s => s.edgePathStyle);
+    const setEdgePathStyle = useStore(s => s.setEdgePathStyle);
     const setSimulationSpeed = useStore(s => s.setSimulationSpeed);
     const setTraceMode = useStore(s => s.setTraceMode);
     const stopSimulation = useStore(s => s.stopSimulation);
@@ -46,21 +50,30 @@ const FlowCanvasInner: React.FC = () => {
     const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
 
     const { nodes: initialNodes, edges: initialEdges } = useMemo(
-        () => buildGraph({ streams, consumers, flows, events, activeFlowId, simulation, traceMode }),
-        [streams, consumers, flows, events, activeFlowId, simulation, traceMode]
+        () => buildGraph({ streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection }),
+        [streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection]
     );
 
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes as Node[]);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges as Edge[]);
     const [isLocked, setIsLocked] = useState(false);
 
+    const prevLayoutRef = useRef(layoutDirection);
+
     useEffect(() => {
         setNodes(current => {
+            const layoutChanged = prevLayoutRef.current !== layoutDirection;
+            prevLayoutRef.current = layoutDirection;
+
+            if (layoutChanged) {
+                // Use entirely new dagre positions when switching layout modes
+                return initialNodes as Node[];
+            }
             const posMap = new Map(current.map(n => [n.id, n.position]));
             return (initialNodes as Node[]).map(n => ({ ...n, position: posMap.get(n.id) ?? n.position }));
         });
         setEdges(initialEdges as Edge[]);
-    }, [initialNodes, initialEdges, setNodes, setEdges]);
+    }, [initialNodes, initialEdges, layoutDirection, setNodes, setEdges]);
 
     const activeFlow = activeFlowId ? flows.find(f => f.id === activeFlowId) : null;
 
@@ -93,6 +106,7 @@ const FlowCanvasInner: React.FC = () => {
     return (
         <div className="flow-canvas" ref={canvasRef}>
             <ReactFlow
+                key={layoutDirection}
                 nodes={nodes}
                 edges={edges}
                 onNodesChange={onNodesChange}
@@ -156,6 +170,29 @@ const FlowCanvasInner: React.FC = () => {
                                 {/* Display Settings */}
                                 <div className="hud-settings-col display-settings-col">
                                     <span className="hud-settings-title">Appearance</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', width: '60px' }}>Node Layout</span>
+                                        <select
+                                            value={layoutDirection}
+                                            onChange={e => setLayoutDirection(e.target.value as any)}
+                                            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)', borderRadius: '6px', fontSize: '11px', padding: '4px 8px', outline: 'none', cursor: 'pointer', flex: 1 }}
+                                        >
+                                            <option value="LR">Left to Right</option>
+                                            <option value="TB">Top to Bottom</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', width: '60px' }}>Path</span>
+                                        <select
+                                            value={edgePathStyle}
+                                            onChange={e => setEdgePathStyle(e.target.value as any)}
+                                            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-default)', borderRadius: '6px', fontSize: '11px', padding: '4px 8px', outline: 'none', cursor: 'pointer', flex: 1 }}
+                                        >
+                                            <option value="bezier">Smooth Curves</option>
+                                            <option value="step">Step (Orthogonal)</option>
+                                            <option value="straight">Straight Lines</option>
+                                        </select>
+                                    </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', width: '60px' }}>Line Style</span>
                                         <select

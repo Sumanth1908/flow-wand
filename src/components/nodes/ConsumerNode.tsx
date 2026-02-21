@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { motion } from 'framer-motion';
+import useStore from '../../store/useStore';
 
 type ConsumerNodeData = {
     label: string;
@@ -14,6 +15,9 @@ type ConsumerNodeData = {
 };
 
 const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>) => {
+    const layoutDirection = useStore(s => s.layoutDirection);
+    const targetPos = layoutDirection === 'TB' ? Position.Top : Position.Left;
+    const sourcePos = layoutDirection === 'TB' ? Position.Bottom : Position.Right;
     const isActive = data.simulationState === 'active';
     const isVisited = data.simulationState === 'visited';
 
@@ -38,7 +42,7 @@ const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>
             }
             transition={isActive ? { duration: 1, repeat: Infinity } : {}}
         >
-            <Handle type="target" position={Position.Left} className="handle-target" />
+            <Handle type="target" position={targetPos} className="handle-target" />
 
             <div className="node-header consumer-header" style={data.activeFlowColor ? { borderBottomColor: data.activeFlowColor } as React.CSSProperties : {}}>
                 <div className="node-icon consumer-icon" style={data.activeFlowColor ? { color: data.activeFlowColor, background: `color-mix(in srgb, ${data.activeFlowColor} 15%, transparent)` } as React.CSSProperties : {}}>
@@ -71,7 +75,7 @@ const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>
                 />
             )}
 
-            <Handle type="source" position={Position.Right} className="handle-source" />
+            <Handle type="source" position={sourcePos} className="handle-source" />
         </motion.div>
     );
 });
