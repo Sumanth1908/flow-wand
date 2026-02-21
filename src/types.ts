@@ -48,13 +48,14 @@ export interface EventType {
 }
 
 export interface SimulationStep {
-    type: 'stream' | 'consumer' | 'edge';
+    type: 'stream' | 'consumer' | 'edge' | 'warning';
     id?: string;
     from?: string;
     to?: string;
     message: string;
     payload?: any;
     outputPayload?: any;
+    isCycle?: boolean;
 }
 
 export interface SimulationState {
@@ -68,13 +69,15 @@ export interface SimulationState {
     visitedConsumerIds: string[];
     activeEdgeIds: string[];
     eventLog: {
-        type: 'stream' | 'consumer' | 'info';
+        type: 'stream' | 'consumer' | 'info' | 'warning';
         message: string;
         time: string;
         payload?: any;
         outputPayload?: any;
     }[];
     speed: number;
+    maxLoops: number;
+    cycleEdges: string[];
 }
 
 export interface StoreState {
@@ -130,6 +133,7 @@ export interface StoreState {
     stopSimulation: () => void;
     clearSimulation: () => void;
     setSimulationSpeed: (ms: number) => void;
+    setMaxLoops: (loops: number) => void;
     advanceSimulation: () => boolean;
 
     showToast: (message: string) => void;

@@ -147,7 +147,8 @@ export function buildGraph({ streams, consumers, flows, events = [], activeFlowI
                     simState = 'active';
                 }
             }
-            const edgeColor = isSimActive ? '#6366f1' : (activeFlowColor || '#b4c4d4');
+            const isCycle = simulation?.cycleEdges?.includes(edgeId);
+            const edgeColor = isCycle ? '#ef4444' : (isSimActive ? '#6366f1' : (activeFlowColor || '#b4c4d4'));
 
             edges.push({
                 id: edgeId, source: streamId, target: consumer.id, type: 'animated',
@@ -157,7 +158,7 @@ export function buildGraph({ streams, consumers, flows, events = [], activeFlowI
                 },
                 data: {
                     label: 'source',
-                    simulationState: simState,
+                    simulationState: isCycle ? 'warning' : simState,
                     speed: (simulation?.speed || 1000) / 1000,
                     activeFlowColor,
                     // Specific events for this connection
@@ -182,7 +183,8 @@ export function buildGraph({ streams, consumers, flows, events = [], activeFlowI
                     simState = 'active';
                 }
             }
-            const edgeColor = isSimActive ? '#6366f1' : (activeFlowColor || '#b4c4d4');
+            const isCycle = simulation?.cycleEdges?.includes(edgeId);
+            const edgeColor = isCycle ? '#ef4444' : (isSimActive ? '#6366f1' : (activeFlowColor || '#b4c4d4'));
 
             edges.push({
                 id: edgeId, source: consumer.id, target: streamId, type: 'animated',
@@ -192,7 +194,7 @@ export function buildGraph({ streams, consumers, flows, events = [], activeFlowI
                 },
                 data: {
                     label: 'sink',
-                    simulationState: simState,
+                    simulationState: isCycle ? 'warning' : simState,
                     speed: (simulation?.speed || 1000) / 1000,
                     activeFlowColor,
                     // Specific events for this connection

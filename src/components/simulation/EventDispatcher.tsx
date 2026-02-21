@@ -15,6 +15,7 @@ interface EventDispatcherProps {
 const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
     const streams = useStore(s => s.streams);
     const startSimulation = useStore(s => s.startSimulation);
+    const setMaxLoops = useStore(s => s.setMaxLoops);
     const simulation = useStore(s => s.simulation);
 
     const [selectedStreamId, setSelectedStreamId] = useState('');
@@ -120,6 +121,20 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
                                 {Array.from({ length: 10 }).map((_, i) => (
                                     <option key={i + 1} value={i + 1}>{i + 1} {i === 0 ? 'Event' : 'Events'}</option>
                                 ))}
+                            </select>
+                            <ChevronDown size={14} className="ed-select-icon" />
+                        </div>
+
+                        {/* Max Loops selector */}
+                        <div className="ed-select-wrap" style={{ marginTop: '8px' }}>
+                            <select
+                                className="ed-select"
+                                value={simulation.maxLoops || 1}
+                                onChange={e => setMaxLoops(Number(e.target.value))}
+                            >
+                                <option value={1}>1 Loop Max (Stop immediately if cycle)</option>
+                                <option value={2}>2 Loops Max</option>
+                                <option value={5}>5 Loops Max</option>
                             </select>
                             <ChevronDown size={14} className="ed-select-icon" />
                         </div>

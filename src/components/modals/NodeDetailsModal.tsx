@@ -137,10 +137,12 @@ const NodeDetailsModal: React.FC<Props> = ({ color }) => {
                 </div>
 
                 <div className="form-actions">
-                    <button type="button" className="btn-secondary" onClick={closeModal} style={{ flex: 1 }}>Close</button>
-                    <button type="button" className="btn-primary" style={{ background: color, borderColor: color, flex: 1 }} onClick={navToEdit}>
-                        Edit Settings
-                    </button>
+                    <div className="modal-footer">
+                        <button type="button" className="btn-cancel" onClick={closeModal} style={{ flex: 1 }}>Close</button>
+                        <button type="button" className="btn-submit" style={{ background: color, borderColor: color, flex: 1 }} onClick={navToEdit}>
+                            Edit
+                        </button>
+                    </div>
                 </div>
             </div>
         );

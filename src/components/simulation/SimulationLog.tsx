@@ -4,11 +4,12 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Zap, ArrowRight, Clock, ChevronDown, ChevronRight } from 'lucide-react';
+import { BookOpen, Zap, ArrowRight, Clock, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 
 const EntryIcon = ({ type }: { type: string }) => {
     if (type === 'stream') return <BookOpen size={12} />;
     if (type === 'consumer') return <Zap size={12} />;
+    if (type === 'warning') return <AlertTriangle size={12} />;
     return <ArrowRight size={12} />;
 };
 
@@ -36,7 +37,7 @@ const PayloadBlock = ({ label, data }: { label: string, data: any }) => {
 };
 
 interface LogEntry {
-    type: 'stream' | 'consumer' | 'info';
+    type: 'stream' | 'consumer' | 'info' | 'warning';
     message: string;
     time: string;
     payload?: any;
