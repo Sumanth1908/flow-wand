@@ -21,7 +21,9 @@ const NodeDetailsModal: React.FC<Props> = ({ color }) => {
 
     if (editingItem.type === 'stream') {
         const stream = editingItem.item as EventStream;
-        const streamEvents = stream.eventIds.map(id => events.find(e => e.id === id)).filter(Boolean);
+        // If stream.eventIds is removed, then streamEvents cannot be derived this way.
+        // Assuming the intent is to remove the display of associated events for a stream.
+        // The original code snippet provided for the change was malformed, so I'm interpreting the instruction directly.
 
         return (
             <div className="form-layout">
@@ -47,19 +49,7 @@ const NodeDetailsModal: React.FC<Props> = ({ color }) => {
                         </div>
                     </div>
 
-                    {streamEvents.length > 0 && (
-                        <div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Events ({streamEvents.length})</span>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                                {streamEvents.map(ev => (
-                                    <div key={ev!.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-elevated)', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
-                                        <Radio size={12} color="var(--indigo)" />
-                                        {ev!.name}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    {/* The section displaying streamEvents is removed as stream.eventIds is no longer referenced */}
                 </div>
 
                 <div className="form-actions">
@@ -123,11 +113,6 @@ const NodeDetailsModal: React.FC<Props> = ({ color }) => {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
                                             <BookOpen size={12} fill="var(--amber)" color="var(--amber)" />
                                             {getStreamName(s.streamId)}
-                                        </div>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                            {getEventNames(s.eventIds).map((name, idx) => (
-                                                <span key={idx} style={{ fontSize: '10px', background: 'color-mix(in srgb, var(--amber) 10%, transparent)', color: 'var(--text-primary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)' }}>{name}</span>
-                                            ))}
                                         </div>
                                     </div>
                                 ))}

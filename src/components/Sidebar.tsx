@@ -363,18 +363,6 @@ const Sidebar: React.FC = () => {
                                                     <div className="item-details">
                                                         <span className="pill" >{stream.type}</span>
                                                     </div>
-                                                    {stream.eventIds && stream.eventIds.length > 0 && (
-                                                        <div className="item-tags">
-                                                            {stream.eventIds.map((eid: string) => {
-                                                                const ev = (events as EventType[] || []).find((e: EventType) => e.id === eid);
-                                                                return ev ? (
-                                                                    <span key={eid} className="item-tag event-tag">
-                                                                        {ev.name}
-                                                                    </span>
-                                                                ) : null;
-                                                            })}
-                                                        </div>
-                                                    )}
                                                 </div>
                                                 <div className="item-actions">
                                                     <button

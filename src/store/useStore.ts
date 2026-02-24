@@ -10,11 +10,14 @@ import { buildConsumerActions } from '../hooks/useConsumers';
 import { buildFlowActions } from '../hooks/useFlows';
 import { buildEventActions } from '../hooks/useEvents';
 import { buildSimulationActions, INITIAL_SIM } from '../hooks/useSimulation';
+import { useEventGeneration } from '../hooks/useEventGeneration';
 import { StoreState, EventStream, Consumer, DataFlow, EventType, Project, EdgeStyle, EdgeShape, LayoutDirection, EdgePathStyle } from '../types';
 import { DEMO_DATA } from '../lib/demoData';
 
 const useStore = create<StoreState>((set, get) => {
-    const simActions = buildSimulationActions(get, set);
+    // Generate event payload hook dependency map
+    const generatorDeps = useEventGeneration();
+    const simActions = buildSimulationActions(get, set, generatorDeps);
 
     let _toastTimer: ReturnType<typeof setTimeout> | null = null;
     const showToast = (message: string) => {
@@ -259,12 +262,12 @@ const useStore = create<StoreState>((set, get) => {
     };
 });
 
-function _slug(str: string) { return str.replace(/[^a-z0-9]/gi, '-').toLowerCase(); }
-function _downloadJson(data: any, filename: string) {
+const _slug = (str: string) => str.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+const _downloadJson = (data: any, filename: string) => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     const a = Object.assign(document.createElement('a'), { href: url, download: filename });
     a.click();
     URL.revokeObjectURL(url);
-}
+};
 
 export default useStore;

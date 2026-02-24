@@ -1,7 +1,7 @@
 /**
  * components/simulation/EventDispatcher.tsx
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, X, Radio, ChevronDown, Code2, AlertTriangle, RotateCcw } from 'lucide-react';
 import useStore from '../../store/useStore';
@@ -14,6 +14,8 @@ interface EventDispatcherProps {
 
 const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
     const streams = useStore(s => s.streams);
+    const consumers = useStore(s => s.consumers);
+    const events = useStore(s => s.events);
     const startSimulation = useStore(s => s.startSimulation);
     const setMaxLoops = useStore(s => s.setMaxLoops);
     const simulation = useStore(s => s.simulation);
@@ -25,6 +27,51 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
     const [eventCount, setEventCount] = useState(1);
 
     const selectableStreams = streams;
+
+    useEffect(() => {
+        if (!selectedStreamId) {
+            setPayload(DEFAULT_PAYLOAD);
+            setPayloadError('');
+            return;
+        }
+
+        const streamEventIds = new Set<string>();
+        consumers.forEach(consumer => {
+            (consumer.sources || []).forEach(source => {
+                if (source.streamId === selectedStreamId) {
+                    (source.eventIds || []).forEach(eid => streamEventIds.add(eid));
+                }
+            });
+        });
+
+        const streamEvents = Array.from(streamEventIds)
+            .map(id => events.find(e => e.id === id))
+            .filter(Boolean);
+
+        if (streamEvents.length > 0) {
+            try {
+                const parsedSchemas = streamEvents.map(e => {
+                    let str = e!.schema.replace(/"ISO-8601"/g, '"{{now}}"');
+                    str = str.replace(/"number"/g, '0');
+                    str = str.replace(/"string"/g, '"{{index}}"');
+                    return JSON.parse(str);
+                });
+
+                const newPayload = parsedSchemas.length === 1
+                    ? JSON.stringify(parsedSchemas[0], null, 2)
+                    : JSON.stringify(parsedSchemas, null, 2);
+
+                setPayload(newPayload);
+                setPayloadError('');
+                return;
+            } catch (err) {
+                console.error("Failed to parse event schema", err);
+            }
+        }
+
+        setPayload(DEFAULT_PAYLOAD);
+        setPayloadError('');
+    }, [selectedStreamId, consumers, events]);
 
     const validatePayload = useCallback((val: string) => {
         if (!val.trim()) { setPayloadError(''); return true; }
@@ -48,15 +95,16 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
         if (!selectedStreamId) return;
         if (!validatePayload(payload)) return;
 
-        const payloads = Array.from({ length: eventCount }).map((_, i) => {
-            if (!payload.trim()) return null;
+        const payloads = Array.from({ length: eventCount }).flatMap((_, i) => {
+            if (!payload.trim()) return [];
             try {
-                return JSON.parse(
+                const parsed = JSON.parse(
                     payload.replace(/\{\{now\}\}/g, () => new Date().toISOString())
                         .replace(/\{\{index\}\}/g, String(i + 1))
                 );
+                return Array.isArray(parsed) ? parsed : [parsed];
             } catch {
-                return null;
+                return [];
             }
         });
 

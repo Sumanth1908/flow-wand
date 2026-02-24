@@ -26,10 +26,7 @@ const StreamForm: React.FC<StreamFormProps> = ({ color }) => {
     const [type, setType] = useState<StreamType>(editingItem?.type || 'kafka');
     const [partitions, setParts] = useState(editingItem?.partitions || 1);
     const [desc, setDesc] = useState(editingItem?.description || '');
-    const [eventIds, setEventIds] = useState<string[]>(editingItem?.eventIds || []);
     const [error, setError] = useState('');
-
-    const events = useStore(s => s.events);
 
     useEffect(() => {
         if (name.trim()) {
@@ -49,13 +46,12 @@ const StreamForm: React.FC<StreamFormProps> = ({ color }) => {
             type,
             partitions: type === 'kafka' ? partitions : 1,
             description: desc.trim(),
-            eventIds,
         };
 
         if (editingItem) {
             updateStream(editingItem.id, data);
         } else {
-            addStream(data.name, data.type, data.partitions, data.description, data.eventIds);
+            addStream(data.name, data.type, data.partitions, data.description);
         }
         closeModal();
     };
@@ -111,32 +107,6 @@ const StreamForm: React.FC<StreamFormProps> = ({ color }) => {
                 />
             </div>
 
-            <div className="form-group">
-                <label>Event Tags <span className="optional">(optional)</span></label>
-                <div className="chip-selector">
-                    {events.length === 0 ? (
-                        <div className="empty-selection">No events defined.</div>
-                    ) : (
-                        events.map(ev => {
-                            const isSelected = eventIds.includes(ev.id);
-                            return (
-                                <button
-                                    key={ev.id} type="button"
-                                    className={`chip ${isSelected ? 'selected' : ''}`}
-                                    onClick={() => setEventIds(prev =>
-                                        prev.includes(ev.id) ? prev.filter(id => id !== ev.id) : [...prev, ev.id]
-                                    )}
-                                    style={isSelected ? { '--chip-color': color } as React.CSSProperties : {}}
-                                >
-                                    {isSelected && <Check size={12} />}
-                                    {ev.name}
-                                </button>
-                            );
-                        })
-                    )}
-                </div>
-                <span className="form-hint">Tag the types of events that flow through this stream</span>
-            </div>
             <ModalFooter color={color} isEditing={!!editingItem} disabled={!!error} />
         </form>
     );

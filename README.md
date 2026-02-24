@@ -26,6 +26,7 @@
 - **🌈 Color-Coded Flows** — Organize consumers into logical Flows with vivid neon colors. Spotlight any flow to isolate its path on the canvas
 - **📋 Event Type Registry** — Define event types with JSON schemas and tag them to specific streams and consumer connections
 - **📊 Event Trace Log** — Real-time simulation log with payload inspection for every hop in the pipeline
+- **🤖 Schema-Aware Mocking** — Consumer outputs automatically synthesize new generated payloads traversing edge connections based on attached Event Schemas
 - **⚡ Adjustable Speed** — Control simulation speed from 0.25× slow-motion to 4× fast-forward
 - **💾 Project Management** — Multiple projects, local persistence, JSON export/import
 - **✨ One-Click Demo** — Load a fully-wired e-commerce order processing pipeline instantly
@@ -87,6 +88,7 @@ npx tsc --noEmit
 
 # Production build
 npm run build
+# Note: Vite chunking is optimized to automatically split `framer-motion`, `@xyflow`, and `lucide-react` into manual chunks to avoid minification limits.
 ```
 
 ## 📄 License

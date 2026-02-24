@@ -19,7 +19,7 @@ export interface BuildGraphParams {
     layoutDirection?: string;
 }
 
-function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'LR') {
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
 
@@ -60,18 +60,18 @@ function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'LR') {
     return { nodes, edges };
 }
 
-function streamSimState(streamId: string, sim: SimulationState) {
+const streamSimState = (streamId: string, sim: SimulationState) => {
     if (sim?.currentStreamId === streamId && sim.active) return 'active';
     if (sim?.visitedStreamIds?.includes(streamId)) return 'visited';
     return 'idle';
 }
 
-function consumerSimState(consumerId: string, sim: SimulationState) {
+const consumerSimState = (consumerId: string, sim: SimulationState) => {
     if (sim?.visitedConsumerIds?.includes(consumerId)) return 'visited';
     return 'idle';
 }
 
-export function buildGraph({ streams, consumers, flows, events = [], activeFlowId, simulation, traceMode, layoutDirection = 'LR' }: BuildGraphParams): { nodes: Node[], edges: Edge[] } {
+export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowId, simulation, traceMode, layoutDirection = 'LR' }: BuildGraphParams): { nodes: Node[], edges: Edge[] } => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
 

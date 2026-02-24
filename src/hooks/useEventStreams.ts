@@ -5,16 +5,16 @@ import { v4 as uuid } from 'uuid';
 import * as storage from '../lib/storage';
 import { EventStream, StreamType } from '../types';
 
-export function buildEventStreamActions(
+export const buildEventStreamActions = (
     projectId: string | null,
     getStreams: () => EventStream[],
     setStreams: (streams: EventStream[]) => void,
     showToast: (message: string) => void
-) {
+) => {
     const isUnique = (name: string, excludeId: string | null = null) =>
         !getStreams().some(t => t.name.toLowerCase() === name.toLowerCase() && t.id !== excludeId);
 
-    const addStream = (name: string, type: StreamType = 'kafka', partitions = 1, description = '', eventIds: string[] = []) => {
+    const addStream = (name: string, type: StreamType = 'kafka', partitions = 1, description = '') => {
         if (!projectId) return false;
         if (!isUnique(name)) {
             showToast(`Event Stream "${name}" already exists`);
@@ -26,7 +26,6 @@ export function buildEventStreamActions(
             type,
             partitions,
             description,
-            eventIds,
         };
         storage.createStream(projectId, stream);
         setStreams([...getStreams(), stream]);

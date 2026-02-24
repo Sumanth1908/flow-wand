@@ -18,7 +18,6 @@ export interface EventStream {
     type: StreamType;
     description: string;
     partitions: number;
-    eventIds: string[];
 }
 
 export interface StreamConnection {
@@ -116,7 +115,7 @@ export interface StoreState {
     exportProject: () => void;
     importProject: (file: File) => Promise<Project>;
 
-    addStream: (name: string, type: StreamType, partitions: number, description: string, eventIds: string[]) => boolean;
+    addStream: (name: string, type: StreamType, partitions: number, description: string) => boolean;
     updateStream: (id: string, patch: Partial<EventStream>) => boolean;
     deleteStream: (id: string) => void;
     isStreamNameUnique: (name: string, excludeId?: string | null) => boolean;

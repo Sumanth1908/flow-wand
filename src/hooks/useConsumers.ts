@@ -5,13 +5,13 @@ import { v4 as uuid } from 'uuid';
 import * as storage from '../lib/storage';
 import { Consumer, DataFlow, StreamConnection } from '../types';
 
-export function buildConsumerActions(
+export const buildConsumerActions = (
     projectId: string | null,
     getConsumers: () => Consumer[],
     setConsumers: (consumers: Consumer[]) => void,
     getFlows: () => DataFlow[],
     setFlows: (flows: DataFlow[]) => void
-) {
+) => {
     const addConsumer = (
         name: string,
         description = '',

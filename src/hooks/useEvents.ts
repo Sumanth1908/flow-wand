@@ -5,13 +5,13 @@ import { v4 as uuid } from 'uuid';
 import * as storage from '../lib/storage';
 import { EventType, Consumer } from '../types';
 
-export function buildEventActions(
+export const buildEventActions = (
     projectId: string | null,
     getEvents: () => EventType[],
     setEvents: (events: EventType[]) => void,
     getConsumers: () => Consumer[],
     setConsumers: (consumers: Consumer[]) => void
-) {
+) => {
     const addEvent = (name: string, description = '', schema = '{}') => {
         if (!projectId) return;
         const event: EventType = {

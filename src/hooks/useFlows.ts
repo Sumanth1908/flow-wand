@@ -5,11 +5,11 @@ import { v4 as uuid } from 'uuid';
 import * as storage from '../lib/storage';
 import { DataFlow } from '../types';
 
-export function buildFlowActions(
+export const buildFlowActions = (
     projectId: string | null,
     getFlows: () => DataFlow[],
     setFlows: (flows: DataFlow[]) => void
-) {
+) => {
     const addFlow = (name: string, color = '#10b981', consumerIds: string[] = [], description = '') => {
         if (!projectId) return;
         const flow: DataFlow = { id: uuid(), name, consumerIds, description, color };

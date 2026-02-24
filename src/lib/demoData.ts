@@ -52,7 +52,6 @@ const streams: EventStream[] = [
         type: 'kafka',
         description: 'Incoming customer orders from the checkout service',
         partitions: 12,
-        eventIds: ['evt-order-placed'],
     },
     {
         id: 'stream-payments',
@@ -60,7 +59,6 @@ const streams: EventStream[] = [
         type: 'kafka',
         description: 'Payment confirmations and declines from the gateway',
         partitions: 6,
-        eventIds: ['evt-payment-processed'],
     },
     {
         id: 'stream-inventory',
@@ -68,7 +66,6 @@ const streams: EventStream[] = [
         type: 'kafka',
         description: 'Warehouse inventory reservation and release events',
         partitions: 8,
-        eventIds: ['evt-inventory-reserved'],
     },
     {
         id: 'stream-shipments',
@@ -76,7 +73,6 @@ const streams: EventStream[] = [
         type: 'kafka',
         description: 'Shipping updates and tracking information',
         partitions: 4,
-        eventIds: ['evt-shipment-created'],
     },
     {
         id: 'stream-notifications',
@@ -84,7 +80,6 @@ const streams: EventStream[] = [
         type: 'sns',
         description: 'Fan-out notification topic for email, SMS and push',
         partitions: 1,
-        eventIds: ['evt-notification-sent'],
     },
     {
         id: 'stream-analytics',
@@ -92,7 +87,6 @@ const streams: EventStream[] = [
         type: 'kafka',
         description: 'Enriched events for the analytics data lake',
         partitions: 16,
-        eventIds: ['evt-analytics-event'],
     },
 ];
 

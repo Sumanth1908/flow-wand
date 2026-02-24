@@ -1,7 +1,7 @@
 /**
  * hooks/useSimulation.ts
  */
-import { SimulationStep, SimulationState, EventStream, Consumer, StoreState } from '../types';
+import { SimulationStep, SimulationState, EventStream, Consumer, EventType, StoreState } from '../types';
 
 let _steps: SimulationStep[] = [];
 let _total = 0;
@@ -22,7 +22,7 @@ const INITIAL_SIM: SimulationState = {
     steps: [],
 };
 
-function buildSimSteps(startStreamId: string, streams: EventStream[], consumers: Consumer[], payloads: any[], maxLoops: number) {
+const buildSimSteps = (startStreamId: string, streams: EventStream[], consumers: Consumer[], events: EventType[], payloads: any[], maxLoops: number, generateEventPayload: (input: any, consumerName: string, events: EventType[]) => any) => {
     const steps: SimulationStep[] = [];
     const log: any[] = [];
     const ts = () => new Date().toISOString();
@@ -76,36 +76,52 @@ function buildSimSteps(startStreamId: string, streams: EventStream[], consumers:
                 if (cVisitCount >= maxLoops) continue;
                 consumerVisits.set(consumer.id, cVisitCount + 1);
 
-                const outputPayload = currentPayload
-                    ? { ...currentPayload, _processedBy: consumer.name, _processedAt: ts() }
-                    : null;
+                // Provide a high-level summary if we have event tags on the incoming leg
+                const sourceConn = (consumer.sources || []).find(s => s.streamId === streamId);
+                const sourceEventNames = (sourceConn?.eventIds || [])
+                    .map(id => events.find(e => e.id === id)?.name)
+                    .filter(Boolean);
+                const sourceEvLabel = sourceEventNames.length > 0 ? ` [${sourceEventNames.join(', ')}]` : '';
+
+                const allSinkEventIds = Array.from(new Set((consumer.sinks || []).flatMap(s => s.eventIds || [])));
+                const outboundEvents = allSinkEventIds.map(id => events.find(e => e.id === id)).filter(Boolean) as EventType[];
+
+                const generatedOutput = generateEventPayload(currentPayload, consumer.name, outboundEvents);
 
                 steps.push({ type: 'edge', from: streamId, to: consumer.id, message: '' });
-                steps.push({ type: 'consumer', id: consumer.id, message: `⚡ Consumer processes: ${consumer.name}${evFlag}`, payload: currentPayload, outputPayload });
+                steps.push({ type: 'consumer', id: consumer.id, message: `⚡ Consumer processes: ${consumer.name}${evFlag}${sourceEvLabel}`, payload: currentPayload, outputPayload: generatedOutput });
 
                 log.push({
                     time: ts(),
                     type: 'consumer',
                     id: consumer.id,
-                    message: `⚡ Consumer processes event: ${consumer.name}${evFlag}`,
+                    message: `⚡ Consumer processes event: ${consumer.name}${evFlag}${sourceEvLabel}`,
                     payload: currentPayload,
-                    outputPayload,
+                    outputPayload: generatedOutput,
                 });
 
                 for (const sink of (consumer.sinks || [])) {
                     const sinkId = sink.streamId;
+
+                    // We dispatch the exact synthesized output for all streams going out to represent the system state uniformly
                     steps.push({ type: 'edge', from: consumer.id, to: sinkId, message: '' });
+
                     const sinkStream = streams.find(t => t.id === sinkId);
+                    const sinkEventNames = (sink.eventIds || [])
+                        .map(id => events.find(e => e.id === id)?.name)
+                        .filter(Boolean);
+                    const sinkEvLabel = sinkEventNames.length > 0 ? ` [${sinkEventNames.join(', ')}]` : '';
+
                     if (sinkStream) {
                         log.push({
                             time: ts(),
                             type: 'stream',
                             id: sinkId,
-                            message: `📤 Event written to stream: ${sinkStream.name}${evFlag}`,
-                            payload: outputPayload,
+                            message: `📤 Event written to stream: ${sinkStream.name}${evFlag}${sinkEvLabel}`,
+                            payload: generatedOutput,
                         });
                     }
-                    queue.push({ streamId: sinkId, currentPayload: outputPayload, viaEdge: `${consumer.id}->${sinkId}` });
+                    queue.push({ streamId: sinkId, currentPayload: generatedOutput, viaEdge: `${consumer.id}->${sinkId}` });
                 }
             }
         }
@@ -114,16 +130,17 @@ function buildSimSteps(startStreamId: string, streams: EventStream[], consumers:
     return { steps, log };
 }
 
-export function buildSimulationActions(
+export const buildSimulationActions = (
     get: () => StoreState,
-    set: (partial: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void
-) {
+    set: (partial: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void,
+    generatorHookDeps: { generateEventPayload: (input: any, consumerName: string, events: EventType[]) => any }
+) => {
     const getSim = () => get().simulation;
 
     const startSimulation = (startStreamId: string, payloadOrPayloads: any | any[] = null) => {
-        const { streams, consumers, simulation } = get();
+        const { streams, consumers, events, simulation } = get();
         const payloads = Array.isArray(payloadOrPayloads) ? payloadOrPayloads : [payloadOrPayloads];
-        const { steps, log } = buildSimSteps(startStreamId, streams, consumers, payloads, simulation.maxLoops || 1);
+        const { steps, log } = buildSimSteps(startStreamId, streams, consumers, events, payloads, simulation.maxLoops || 1, generatorHookDeps.generateEventPayload);
 
         if (steps.length === 0) {
             get().showToast('No connected consumers found for this stream');
@@ -142,7 +159,9 @@ export function buildSimulationActions(
                 speed: getSim().speed,
                 totalSteps: _total,
                 currentStep: 0,
-                eventLog: [], // Start fresh
+                // Do NOT use the log built statically during `buildSimSteps` as the live view. 
+                // The Live view uses eventLog incremented step-by-step in `advanceSimulation`, so we initialize empty here
+                eventLog: [],
             },
         });
     };
@@ -167,7 +186,7 @@ export function buildSimulationActions(
                     time: new Date().toISOString(),
                     type: 'stream',
                     message: step.message,
-                    payload: step.payload ?? null,
+                    payload: step.payload,
                 },
             ];
         } else if (step.type === 'consumer' && step.id) {
@@ -179,8 +198,8 @@ export function buildSimulationActions(
                     time: new Date().toISOString(),
                     type: 'consumer',
                     message: step.message,
-                    payload: step.payload ?? null,
-                    outputPayload: step.outputPayload ?? null,
+                    payload: step.payload,
+                    outputPayload: step.outputPayload,
                 },
             ];
         } else if (step.type === 'edge' && step.from && step.to) {
