@@ -3,14 +3,14 @@
  * Shows the live event-by-event log with icons, timestamps, and optional payload.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { BookOpen, Zap, ArrowRight, Clock, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
+import { BookOpen, Zap, ArrowRight, Clock, ChevronDown, ChevronRight, TriangleAlert } from 'lucide-react';
+import { Box, Stack, Typography, Paper, IconButton, Collapse, Divider } from '@mui/material';
 
 const EntryIcon = ({ type }: { type: string }) => {
-    if (type === 'stream') return <BookOpen size={12} />;
-    if (type === 'consumer') return <Zap size={12} />;
-    if (type === 'warning') return <AlertTriangle size={12} />;
-    return <ArrowRight size={12} />;
+    if (type === 'stream') return <BookOpen size={14} />;
+    if (type === 'consumer') return <Zap size={14} />;
+    if (type === 'warning') return <TriangleAlert size={14} />;
+    return <ArrowRight size={14} />;
 };
 
 /** Collapsible JSON block */
@@ -18,21 +18,29 @@ const PayloadBlock = ({ label, data }: { label: string, data: any }) => {
     const [open, setOpen] = useState(false);
     if (!data) return null;
     return (
-        <div className="payload-block">
-            <button
-                type="button"
-                className="payload-toggle"
+        <Box sx={{ mt: 1, border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'background.default', overflow: 'hidden' }}>
+            <Box
                 onClick={() => setOpen(v => !v)}
+                sx={{
+                    display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.5,
+                    cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' },
+                    userSelect: 'none'
+                }}
             >
-                {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-                <span>{label}</span>
-            </button>
-            {open && (
-                <pre className="payload-json">
+                {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                <Typography variant="caption" fontWeight="bold" sx={{ color: 'text.secondary', textTransform: 'uppercase', fontSize: 10 }}>
+                    {label}
+                </Typography>
+            </Box>
+            <Collapse in={open}>
+                <Box component="pre" sx={{
+                    m: 0, p: 1, fontSize: 11, fontFamily: 'monospace',
+                    overflowX: 'auto', bgcolor: 'rgba(0,0,0,0.2)', color: 'text.primary'
+                }}>
                     {JSON.stringify(data, null, 2)}
-                </pre>
-            )}
-        </div>
+                </Box>
+            </Collapse>
+        </Box>
     );
 };
 
@@ -53,49 +61,62 @@ const SimulationLog: React.FC<{ log: LogEntry[] }> = ({ log = [] }) => {
 
     if (log.length === 0) {
         return (
-            <div className="sim-event-log sim-log-empty">
-                <span>Events will appear here…</span>
-            </div>
+            <Box sx={{ p: 4, textAlign: 'center', color: 'text.disabled' }}>
+                <Typography variant="body2">Events will appear here…</Typography>
+            </Box>
         );
     }
 
     return (
-        <div className="sim-event-log">
+        <Stack spacing={1.5} sx={{ p: 2 }}>
             {log.map((entry, i) => (
-                <motion.div
+                <Box
                     key={i}
-                    className={`event-entry ${entry.type}`}
-                    initial={{ opacity: 0, x: -16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.15 }}
+                    sx={{
+                        display: 'flex', gap: 1.5,
+                        opacity: 0, animation: 'fadeIn 0.3s forwards',
+                        '@keyframes fadeIn': { from: { opacity: 0, transform: 'translateX(-10px)' }, to: { opacity: 1, transform: 'translateX(0)' } }
+                    }}
                 >
-                    <div className="event-entry-main">
-                        <div className="event-icon">
-                            <EntryIcon type={entry.type} />
-                        </div>
-                        <div className="event-content">
-                            <span className="event-message">{entry.message}</span>
-                            {/* Input payload for stream entries */}
-                            {entry.type === 'stream' && entry.payload && (
-                                <PayloadBlock label="payload" data={entry.payload} />
-                            )}
-                            {/* Input + output payload for consumer entries */}
-                            {entry.type === 'consumer' && (
-                                <>
-                                    {entry.payload && <PayloadBlock label="input" data={entry.payload} />}
-                                    {entry.outputPayload && <PayloadBlock label="output" data={entry.outputPayload} />}
-                                </>
-                            )}
-                        </div>
-                        <span className="event-time">
-                            <Clock size={10} />
-                            {new Date(entry.time).toLocaleTimeString()}
-                        </span>
-                    </div>
-                </motion.div>
+                    <Box sx={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                        bgcolor: entry.type === 'stream' ? 'primary.main' : entry.type === 'consumer' ? 'warning.main' : entry.type === 'warning' ? 'error.main' : 'info.main',
+                        color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                    }}>
+                        <EntryIcon type={entry.type} />
+                    </Box>
+
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', mt: 0.25 }}>
+                                {entry.message}
+                            </Typography>
+                            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'text.disabled', flexShrink: 0 }}>
+                                <Clock size={10} />
+                                <Typography variant="caption" sx={{ fontSize: 10 }}>
+                                    {new Date(entry.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                </Typography>
+                            </Stack>
+                        </Stack>
+
+                        {/* Input payload for stream entries */}
+                        {entry.type === 'stream' && entry.payload && (
+                            <PayloadBlock label="payload" data={entry.payload} />
+                        )}
+                        {/* Input + output payload for consumer entries */}
+                        {entry.type === 'consumer' && (
+                            <>
+                                {entry.payload && <PayloadBlock label="input" data={entry.payload} />}
+                                {entry.outputPayload && <PayloadBlock label="output" data={entry.outputPayload} />}
+                            </>
+                        )}
+                    </Box>
+                </Box>
             ))}
             <div ref={endRef} />
-        </div>
+        </Stack>
     );
 };
 

@@ -11,6 +11,7 @@ export type EdgeStyle = 'solid' | 'dashed' | 'dotted';
 export type EdgeShape = 'circle' | 'square' | 'diamond' | 'star' | 'pizza' | 'ghost' | 'heart' | 'alien' | 'rocket';
 export type LayoutDirection = 'LR' | 'TB';
 export type EdgePathStyle = 'bezier' | 'step' | 'straight';
+export type RoutingStrategy = 'broadcast' | 'conditional' | 'failover';
 
 export interface EventStream {
     id: string;
@@ -25,12 +26,27 @@ export interface StreamConnection {
     eventIds: string[];
 }
 
+export interface RoutingRule {
+    id: string;
+    sourceStreamId?: string; // Filter: only run for this source
+    sourceEventId?: string;  // Filter: only run for this specific event type
+    condition: string;       // JS expression
+    sinkStreamId: string;
+    outputEventId?: string;  // Explicit event schema to map to
+    transformScript?: string;
+    eventIds?: string[];     // Keep for backward compat/multi-emit if needed
+}
+
 export interface Consumer {
     id: string;
     name: string;
     description: string;
     sources: StreamConnection[];
     sinks: StreamConnection[];
+    routingStrategy?: RoutingStrategy;
+    failureRate?: number;
+    transformScript?: string; // JS block e.g. "payload.newField = 1; return payload;"
+    routingRules?: RoutingRule[];
 }
 
 export interface DataFlow {
@@ -95,7 +111,7 @@ export interface StoreState {
     leftSidebarOpen: boolean;
     rightSidebarOpen: boolean;
     selectedNodeId: string | null;
-    modalOpen: 'stream' | 'consumer' | 'flow' | 'event' | 'project' | 'confirm' | 'nodeDetails' | null;
+    modalOpen: 'stream' | 'consumer' | 'flow' | 'event' | 'project' | 'confirm' | 'nodeDetails' | 'settings' | 'fireEvent' | 'snapshot' | null;
     editingItem: any | null;
     toastMessage: string | null;
     lastSavedAt: string | null;
@@ -104,6 +120,7 @@ export interface StoreState {
     edgeShape: EdgeShape;
     layoutDirection: LayoutDirection;
     edgePathStyle: EdgePathStyle;
+    nodePositions: Record<string, { x: number, y: number }>;
 
     init: () => void;
     toggleTheme: () => void;
@@ -112,6 +129,8 @@ export interface StoreState {
     deleteProject: (id: string) => void;
     switchProject: (projectId: string) => void;
     saveProject: () => void;
+    updateNodePositions: (positions: Record<string, { x: number, y: number }>) => void;
+    resetLayout: () => void;
     exportProject: () => void;
     importProject: (file: File) => Promise<Project>;
 
@@ -120,7 +139,7 @@ export interface StoreState {
     deleteStream: (id: string) => void;
     isStreamNameUnique: (name: string, excludeId?: string | null) => boolean;
 
-    addConsumer: (name: string, description: string, sources: StreamConnection[], sinks: StreamConnection[]) => boolean;
+    addConsumer: (name: string, description: string, sources: StreamConnection[], sinks: StreamConnection[], routingStrategy?: RoutingStrategy, failureRate?: number, transformScript?: string, routingRules?: RoutingRule[]) => boolean;
     updateConsumer: (id: string, patch: Partial<Consumer>) => boolean;
     deleteConsumer: (id: string) => void;
 
@@ -144,7 +163,7 @@ export interface StoreState {
     setActiveFlow: (id: string | null) => void;
     setLeftSidebar: (open: boolean) => void;
     setRightSidebar: (open: boolean) => void;
-    openModal: (type: 'stream' | 'consumer' | 'flow' | 'event' | 'project' | 'confirm' | 'nodeDetails', item?: any) => void;
+    openModal: (type: 'stream' | 'consumer' | 'flow' | 'event' | 'project' | 'confirm' | 'nodeDetails' | 'settings' | 'fireEvent' | 'snapshot', item?: any) => void;
     closeModal: () => void;
     setSelectedNode: (id: string | null) => void;
     setTraceMode: (enabled: boolean) => void;

@@ -65,6 +65,7 @@ const useStore = create<StoreState>((set, get) => {
         edgeShape: 'circle',
         layoutDirection: 'LR',
         edgePathStyle: 'bezier',
+        nodePositions: {},
 
         // ── App init ─────────────────────────────────────────────
         init: () => {
@@ -99,7 +100,7 @@ const useStore = create<StoreState>((set, get) => {
                 projects: [...s.projects, project],
                 activeProjectId: project.id,
                 streams: [], consumers: [], flows: [], events: [],
-                activeFlowId: null, lastSavedAt: null,
+                activeFlowId: null, lastSavedAt: null, nodePositions: {},
             }));
             return project;
         },
@@ -135,6 +136,7 @@ const useStore = create<StoreState>((set, get) => {
                 events: data.events || [],
                 activeFlowId: null,
                 lastSavedAt: project?.lastSavedAt || null,
+                nodePositions: data.nodePositions || {},
             });
             get().clearSimulation();
         },
@@ -145,8 +147,30 @@ const useStore = create<StoreState>((set, get) => {
             if (!id) return;
             const now = new Date().toISOString();
             storage.updateProject(id, { lastSavedAt: now });
+
+            // Ensure node positions are also persisted in the project data blob
+            const data = storage.getProjectData(id);
+            data.nodePositions = get().nodePositions;
+            storage.saveProjectData(id, data);
+
             set({ lastSavedAt: now, projects: storage.getProjects() });
             showToast('Saved to browser ✓');
+        },
+
+        updateNodePositions: (positions) => {
+            set(s => ({ nodePositions: { ...s.nodePositions, ...positions } }));
+        },
+
+        resetLayout: () => {
+            set({ nodePositions: {} });
+            // After reset, we might want to save to persist the clean state
+            const id = get().activeProjectId;
+            if (id) {
+                const data = storage.getProjectData(id);
+                data.nodePositions = {};
+                storage.saveProjectData(id, data);
+            }
+            showToast('Layout reset to default ✓');
         },
 
         exportProject: () => {
@@ -224,7 +248,7 @@ const useStore = create<StoreState>((set, get) => {
         },
         setLayoutDirection: (layout) => {
             storage.savePrefs({ ...storage.getPrefs(), layoutDirection: layout });
-            set({ layoutDirection: layout });
+            set({ layoutDirection: layout, nodePositions: {} });
         },
         setEdgePathStyle: (style) => {
             storage.savePrefs({ ...storage.getPrefs(), edgePathStyle: style });
@@ -256,6 +280,7 @@ const useStore = create<StoreState>((set, get) => {
                 activeFlowId: null,
                 simulation: { ...get().simulation, active: false, eventLog: [], visitedStreamIds: [], visitedConsumerIds: [], activeEdgeIds: [] },
                 lastSavedAt: null,
+                nodePositions: {},
             });
             showToast('Application reset to fresh state 🧹');
         },

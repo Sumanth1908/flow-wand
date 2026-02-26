@@ -14,6 +14,7 @@ interface ProjectData {
     consumers: Consumer[];
     flows: DataFlow[];
     events: EventType[];
+    nodePositions?: Record<string, { x: number, y: number }>;
 }
 
 interface AppPrefs {

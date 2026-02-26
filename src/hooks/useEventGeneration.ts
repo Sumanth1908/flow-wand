@@ -6,32 +6,47 @@ import { EventType } from '../types';
 
 export const useEventGeneration = () => {
     const generateEventPayload = (
-        currentPayload: any,
+        sourceData: any,
         consumerName: string,
         outboundEvents: EventType[]
     ) => {
         const ts = () => new Date().toISOString();
-        let payload: any = { _processedBy: consumerName, _processedAt: ts() };
+        const base = { _processedBy: consumerName, _processedAt: ts() };
 
         if (!outboundEvents || outboundEvents.length === 0) {
-            // If the consumer doesn't specify any output schemas, we just emit a generic acknowledgment event
-            Reflect.set(payload, 'status', 'processed');
-            return payload;
+            // Return raw data if no schema defined
+            return { ...sourceData, ...base };
         }
 
-        const parsedSchemas = outboundEvents.map(e => {
-            if (!e || !e.schema) return {};
-            try { return JSON.parse(e.schema); } catch { return {}; }
+        // Merge all schemas required for this sink
+        const mergedSchema: any = {};
+        outboundEvents.forEach(e => {
+            if (!e || !e.schema) return;
+            try {
+                const parsed = JSON.parse(e.schema);
+                Object.assign(mergedSchema, parsed);
+            } catch { /* ignore invalid schema */ }
         });
 
-        if (parsedSchemas.length === 1) {
-            payload = { ...payload, ...parsedSchemas[0] };
-        } else if (parsedSchemas.length > 1) {
-            const mergedSchemas = parsedSchemas.reduce((acc, curr) => ({ ...acc, ...curr }), {});
-            payload = { ...payload, ...mergedSchemas };
-        }
+        // Fill schema using sourceData
+        const result: any = { ...base };
+        Object.keys(mergedSchema).forEach(key => {
+            if (sourceData && sourceData[key] !== undefined) {
+                result[key] = sourceData[key];
+            } else {
+                // Default value from schema or dummy
+                result[key] = mergedSchema[key];
+            }
+        });
 
-        return payload;
+        // Optionally keep processed fields from source if they aren't in schema but look important
+        // (like orderId, correlationId, etc)
+        const stickyFields = ['orderId', 'id', 'correlationId', 'traceId'];
+        stickyFields.forEach(f => {
+            if (sourceData[f] && !result[f]) result[f] = sourceData[f];
+        });
+
+        return result;
     };
 
     return { generateEventPayload };

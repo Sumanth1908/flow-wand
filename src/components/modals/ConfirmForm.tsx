@@ -1,6 +1,7 @@
 import React from 'react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
+import { Box, Typography } from '@mui/material';
 
 interface ConfirmFormProps {
     color: string;
@@ -20,16 +21,16 @@ const ConfirmForm: React.FC<ConfirmFormProps> = ({ color }) => {
 
     return (
         <form onSubmit={handleSubmit}>
-            <div className="form-group" style={{ marginBottom: '24px' }}>
-                <p style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+            <Box sx={{ mb: 3 }}>
+                <Typography variant="body1" color="text.primary" sx={{ lineHeight: 1.5 }}>
                     {editingItem?.message || 'Are you sure you want to proceed?'}
-                </p>
+                </Typography>
                 {editingItem?.subMessage && (
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                         {editingItem.subMessage}
-                    </p>
+                    </Typography>
                 )}
-            </div>
+            </Box>
             <ModalFooter color={color} isEditing={false} submitLabel={editingItem?.confirmLabel || 'Confirm'} />
         </form>
     );

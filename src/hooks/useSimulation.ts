@@ -100,16 +100,122 @@ const buildSimSteps = (startStreamId: string, streams: EventStream[], consumers:
                     outputPayload: generatedOutput,
                 });
 
-                for (const sink of (consumer.sinks || [])) {
-                    const sinkId = sink.streamId;
+                // 1. Phase 1: Canonical Transformation
+                let intermediateData = { ...currentPayload };
+                if (consumer.transformScript) {
+                    try {
+                        const transformFn = new Function('payload', `
+                            ${consumer.transformScript}
+                            return payload;
+                        `);
+                        const result = transformFn({ ...currentPayload });
+                        if (result) intermediateData = result;
+                    } catch (e) {
+                        console.error("Transformation failed", e);
+                        log.push({ time: ts(), type: 'warning', message: `❌ Script error in ${consumer.name}: ${e}` });
+                    }
+                }
 
-                    // We dispatch the exact synthesized output for all streams going out to represent the system state uniformly
+                steps.push({ type: 'edge', from: streamId, to: consumer.id, message: '' });
+                steps.push({
+                    type: 'consumer',
+                    id: consumer.id,
+                    message: `⚡ Consumer processes: ${consumer.name}${evFlag}${sourceEvLabel}`,
+                    payload: currentPayload,
+                    outputPayload: intermediateData
+                });
+
+                log.push({
+                    time: ts(),
+                    type: 'consumer',
+                    id: consumer.id,
+                    message: `⚡ Consumer processes event: ${consumer.name}${evFlag}${sourceEvLabel}`,
+                    payload: currentPayload,
+                    outputPayload: intermediateData,
+                });
+
+                // 2. Phase 2: Routing Decisions & Rule-Specific Transformations
+                const strategy = consumer.routingStrategy || 'broadcast';
+                let dispatchTargets: { sinkId: string, payload: any, eventIds?: string[] }[] = [];
+
+                if (strategy === 'broadcast') {
+                    dispatchTargets = (consumer.sinks || []).map(s => ({ sinkId: s.streamId, payload: intermediateData }));
+                } else if (strategy === 'failover') {
+                    const rate = consumer.failureRate || 0.05;
+                    const isFailure = Math.random() < rate;
+                    const sinks = (consumer.sinks || []).map(s => s.streamId);
+
+                    if (isFailure && sinks.length > 1) {
+                        const dlqSinkId = sinks.find(sId => {
+                            const stream = streams.find(st => st.id === sId);
+                            return stream?.name.toLowerCase().includes('dlq') || stream?.name.toLowerCase().includes('error');
+                        }) || sinks[sinks.length - 1];
+                        dispatchTargets = [{ sinkId: dlqSinkId, payload: intermediateData }];
+                        log.push({ time: ts(), type: 'warning', message: `⚠️ Simulated failure! Routing to DLQ.` });
+                    } else if (!isFailure && sinks.length > 0) {
+                        dispatchTargets = [{ sinkId: sinks[0], payload: intermediateData }];
+                    }
+                } else if (strategy === 'conditional') {
+                    const rules = consumer.routingRules || [];
+                    if (rules.length > 0) {
+                        rules.forEach(rule => {
+                            // 1. Filter Check: Source Stream
+                            if (rule.sourceStreamId && rule.sourceStreamId !== streamId) return;
+
+                            try {
+                                const evalFn = new Function('payload', `return ${rule.condition}`);
+                                if (evalFn(intermediateData)) {
+                                    let rulePayload = { ...intermediateData };
+                                    if (rule.transformScript) {
+                                        try {
+                                            const ruleTransformFn = new Function('payload', `
+                                                ${rule.transformScript}
+                                                return payload;
+                                            `);
+                                            const res = ruleTransformFn({ ...intermediateData });
+                                            if (res) rulePayload = res;
+                                        } catch (te) {
+                                            log.push({ time: ts(), type: 'warning', message: `❌ Rule transform error: ${te}` });
+                                        }
+                                    }
+
+                                    // Use explicit outputEventId if set, otherwise fallback to the rule's eventIds array
+                                    const effectiveOutEvents = rule.outputEventId ? [rule.outputEventId] : (rule.eventIds || []);
+
+                                    dispatchTargets.push({
+                                        sinkId: rule.sinkStreamId,
+                                        payload: rulePayload,
+                                        eventIds: effectiveOutEvents.length > 0 ? effectiveOutEvents : undefined
+                                    });
+                                }
+                            } catch (e) {
+                                console.warn("Rule evaluation failed", e);
+                            }
+                        });
+                    }
+
+                    if (dispatchTargets.length === 0 && (consumer.sinks || []).length > 0) {
+                        log.push({ time: ts(), type: 'info', message: `ℹ️ No conditions met. Event dropped by ${consumer.name}.` });
+                        steps.push({ type: 'warning', message: `Event dropped: No conditions met at ${consumer.name}`, id: consumer.id });
+                    }
+                }
+
+                // 3. Phase 3: Sink-Specific Emission (Mapping to Schemas)
+                for (const target of dispatchTargets) {
+                    const { sinkId, payload: dataToEmit, eventIds: ruleEventIds } = target;
                     steps.push({ type: 'edge', from: consumer.id, to: sinkId, message: '' });
 
+                    const connection = consumer.sinks?.find(s => s.streamId === sinkId);
+                    const effectiveEventIds = ruleEventIds || connection?.eventIds || [];
+
+                    const sinkEvents = effectiveEventIds
+                        .map(id => events.find(e => e.id === id))
+                        .filter(Boolean) as EventType[];
+
+                    const finalSinkPayload = generateEventPayload(dataToEmit, consumer.name, sinkEvents);
+
                     const sinkStream = streams.find(t => t.id === sinkId);
-                    const sinkEventNames = (sink.eventIds || [])
-                        .map(id => events.find(e => e.id === id)?.name)
-                        .filter(Boolean);
+                    const sinkEventNames = sinkEvents.map(e => e.name);
                     const sinkEvLabel = sinkEventNames.length > 0 ? ` [${sinkEventNames.join(', ')}]` : '';
 
                     if (sinkStream) {
@@ -117,11 +223,11 @@ const buildSimSteps = (startStreamId: string, streams: EventStream[], consumers:
                             time: ts(),
                             type: 'stream',
                             id: sinkId,
-                            message: `📤 Event written to stream: ${sinkStream.name}${evFlag}${sinkEvLabel}`,
-                            payload: generatedOutput,
+                            message: `📤 Event written to ${sinkStream.name}${evFlag}${sinkEvLabel}`,
+                            payload: finalSinkPayload,
                         });
                     }
-                    queue.push({ streamId: sinkId, currentPayload: generatedOutput, viaEdge: `${consumer.id}->${sinkId}` });
+                    queue.push({ streamId: sinkId, currentPayload: finalSinkPayload, viaEdge: `${consumer.id}->${sinkId}` });
                 }
             }
         }
