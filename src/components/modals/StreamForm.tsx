@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Check } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
 import { EventStream, StreamType } from '../../types';
+import { Stack, TextField, MenuItem, Typography } from '@mui/material';
 
 interface StreamFormProps {
     color: string;
@@ -58,54 +58,61 @@ const StreamForm: React.FC<StreamFormProps> = ({ color }) => {
 
     return (
         <form onSubmit={handleSubmit}>
-            <div className="form-group">
-                <label>Stream Name</label>
-                <input
-                    className={`form-input ${error ? 'form-input-error' : ''}`}
-                    value={name} onChange={e => setName(e.target.value)}
-                    placeholder="e.g. user-events, order-stream" autoFocus
+            <Stack spacing={3}>
+                <TextField
+                    label="Stream Name"
+                    fullWidth
+                    size="small"
+                    autoFocus
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="e.g. user-events, order-stream"
+                    error={!!error}
+                    helperText={error}
+                    InputLabelProps={{ shrink: true }}
                 />
-                {error && (
-                    <div className="form-error">
-                        <AlertCircle size={12} /><span>{error}</span>
-                    </div>
-                )}
-            </div>
 
-            <div className="form-group">
-                <label>Stream Type</label>
-                <div className="stream-type-selector">
+                <TextField
+                    select
+                    label="Stream Type"
+                    fullWidth
+                    size="small"
+                    value={type}
+                    onChange={e => setType(e.target.value as StreamType)}
+                    InputLabelProps={{ shrink: true }}
+                >
                     {STREAM_TYPES.map(t => (
-                        <button
-                            key={t.value}
-                            type="button"
-                            className={`type-chip ${type === t.value ? 'selected' : ''}`}
-                            onClick={() => setType(t.value)}
-                            style={{ '--chip-color': color } as React.CSSProperties}
-                        >
+                        <MenuItem key={t.value} value={t.value}>
                             {t.label}
-                        </button>
+                        </MenuItem>
                     ))}
-                </div>
-            </div>
+                </TextField>
 
-            {type === 'kafka' && (
-                <div className="form-group">
-                    <label>Partitions</label>
-                    <input
-                        className="form-input" type="number" min={1} max={256}
-                        value={partitions} onChange={e => setParts(parseInt(e.target.value) || 1)}
+                {type === 'kafka' && (
+                    <TextField
+                        label="Partitions"
+                        type="number"
+                        fullWidth
+                        size="small"
+                        inputProps={{ min: 1, max: 256 }}
+                        value={partitions}
+                        onChange={e => setParts(parseInt(e.target.value) || 1)}
+                        InputLabelProps={{ shrink: true }}
                     />
-                </div>
-            )}
+                )}
 
-            <div className="form-group">
-                <label>Description <span className="optional">(optional)</span></label>
-                <textarea
-                    className="form-textarea" rows={2} value={desc}
-                    onChange={e => setDesc(e.target.value)} placeholder="Describe this stream…"
+                <TextField
+                    label={<>Description <Typography component="span" variant="caption" color="text.secondary">(optional)</Typography></>}
+                    fullWidth
+                    size="small"
+                    multiline
+                    rows={2}
+                    value={desc}
+                    onChange={e => setDesc(e.target.value)}
+                    placeholder="Describe this stream…"
+                    InputLabelProps={{ shrink: true }}
                 />
-            </div>
+            </Stack>
 
             <ModalFooter color={color} isEditing={!!editingItem} disabled={!!error} />
         </form>

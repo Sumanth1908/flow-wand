@@ -2,6 +2,7 @@ import React from 'react';
 import useStore from '../../store/useStore';
 import { EventStream, Consumer } from '../../types';
 import { BookOpen, Radio } from 'lucide-react';
+import { Box, Typography, Stack, Button, Chip } from '@mui/material';
 
 interface Props {
     color: string;
@@ -19,48 +20,55 @@ const NodeDetailsModal: React.FC<Props> = ({ color }) => {
         openModal(editingItem.type, editingItem.item);
     };
 
+    const Label = ({ children }: { children: React.ReactNode }) => (
+        <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 'bold', letterSpacing: 1, display: 'block', mb: 0.5 }}>
+            {children}
+        </Typography>
+    );
+
     if (editingItem.type === 'stream') {
         const stream = editingItem.item as EventStream;
-        // If stream.eventIds is removed, then streamEvents cannot be derived this way.
-        // Assuming the intent is to remove the display of associated events for a stream.
-        // The original code snippet provided for the change was malformed, so I'm interpreting the instruction directly.
 
         return (
-            <div className="form-layout">
-                <div style={{ padding: '20px', background: 'var(--bg-tertiary)', borderRadius: '12px', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <Stack spacing={3}>
+                <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 2 }}>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Type</span>
-                            <div style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: 500, marginTop: '4px' }}>{stream.type.toUpperCase()}</div>
-                        </div>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                        <Box>
+                            <Label>Type</Label>
+                            <Typography variant="body1" fontWeight={500}>{stream.type.toUpperCase()}</Typography>
+                        </Box>
                         {stream.type === 'kafka' && (
-                            <div>
-                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Partitions</span>
-                                <div style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: 500, marginTop: '4px' }}>{stream.partitions}</div>
-                            </div>
+                            <Box>
+                                <Label>Partitions</Label>
+                                <Typography variant="body1" fontWeight={500}>{stream.partitions}</Typography>
+                            </Box>
                         )}
-                    </div>
+                    </Box>
 
-                    <div>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Description</span>
-                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.5 }}>
-                            {stream.description || <span style={{ fontStyle: 'italic', color: 'var(--text-dim)' }}>No description provided.</span>}
-                        </div>
-                    </div>
+                    <Box>
+                        <Label>Description</Label>
+                        {stream.description ? (
+                            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+                                {stream.description}
+                            </Typography>
+                        ) : (
+                            <Typography variant="body2" color="text.disabled" fontStyle="italic">
+                                No description provided.
+                            </Typography>
+                        )}
+                    </Box>
+                </Box>
 
-                    {/* The section displaying streamEvents is removed as stream.eventIds is no longer referenced */}
-                </div>
-
-                <div className="form-actions">
-                    <div className="modal-footer">
-                        <button type="button" className="btn-cancel" onClick={closeModal} style={{ flex: 1 }}>Close</button>
-                        <button type="button" className="btn-submit" style={{ background: color, borderColor: color, flex: 1 }} onClick={navToEdit}>
-                            Edit
-                        </button>
-                    </div>
-                </div>
-            </div>
+                <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ pt: 2, borderTop: 1, borderColor: 'divider' }}>
+                    <Button variant="outlined" color="inherit" onClick={closeModal} sx={{ flex: 1, textTransform: 'none' }}>
+                        Close
+                    </Button>
+                    <Button variant="contained" onClick={navToEdit} sx={{ flex: 1, bgcolor: color, '&:hover': { bgcolor: color, filter: 'brightness(0.9)' }, textTransform: 'none' }}>
+                        Edit
+                    </Button>
+                </Stack>
+            </Stack>
         );
     }
 
@@ -71,65 +79,80 @@ const NodeDetailsModal: React.FC<Props> = ({ color }) => {
         const getStreamName = (sid: string) => streams.find(s => s.id === sid)?.name || sid;
 
         return (
-            <div className="form-layout">
-                <div style={{ padding: '20px', background: 'var(--bg-tertiary)', borderRadius: '12px', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Consumer Name</span>
-                        <div style={{ fontSize: '18px', color: 'var(--text-primary)', fontWeight: 600, marginTop: '4px' }}>{consumer.name}</div>
-                    </div>
+            <Stack spacing={3}>
+                <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 2 }}>
 
-                    <div>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Description</span>
-                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.5 }}>
-                            {consumer.description || <span style={{ fontStyle: 'italic', color: 'var(--text-dim)' }}>No description provided.</span>}
-                        </div>
-                    </div>
+                    <Box>
+                        <Label>Consumer Name</Label>
+                        <Typography variant="h6" fontWeight="bold">{consumer.name}</Typography>
+                    </Box>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                        <div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Sources ({consumer.sources.length})</span>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                                {consumer.sources.length === 0 ? <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>No sources</span> : consumer.sources.map((s, i) => (
-                                    <div key={i} style={{ padding: '8px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
-                                            <BookOpen size={12} fill="var(--indigo)" color="var(--indigo)" />
-                                            {getStreamName(s.streamId)}
-                                        </div>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                            {getEventNames(s.eventIds).map((name, idx) => (
-                                                <span key={idx} style={{ fontSize: '10px', background: 'color-mix(in srgb, var(--indigo) 10%, transparent)', color: 'var(--text-primary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid color-mix(in srgb, var(--indigo) 20%, transparent)' }}>{name}</span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                    <Box>
+                        <Label>Description</Label>
+                        {consumer.description ? (
+                            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+                                {consumer.description}
+                            </Typography>
+                        ) : (
+                            <Typography variant="body2" color="text.disabled" fontStyle="italic">
+                                No description provided.
+                            </Typography>
+                        )}
+                    </Box>
 
-                        <div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Sinks ({consumer.sinks.length})</span>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                                {consumer.sinks.length === 0 ? <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>No sinks</span> : consumer.sinks.map((s, i) => (
-                                    <div key={i} style={{ padding: '8px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
-                                            <BookOpen size={12} fill="var(--amber)" color="var(--amber)" />
-                                            {getStreamName(s.streamId)}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, mt: 1 }}>
+                        <Box>
+                            <Label>Sources ({consumer.sources.length})</Label>
+                            <Stack spacing={1} sx={{ mt: 1 }}>
+                                {consumer.sources.length === 0 ? (
+                                    <Typography variant="caption" color="text.disabled">No sources</Typography>
+                                ) : (
+                                    consumer.sources.map((s, i) => (
+                                        <Box key={i} sx={{ p: 1.5, bgcolor: 'background.default', border: 1, borderColor: 'divider', borderRadius: 1.5 }}>
+                                            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                                                <BookOpen size={14} color="#6366f1" />
+                                                <Typography variant="caption" fontWeight="bold">{getStreamName(s.streamId)}</Typography>
+                                            </Stack>
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                {getEventNames(s.eventIds).map((name, idx) => (
+                                                    <Chip key={idx} label={name} size="small" sx={{ fontSize: 10, height: 20, bgcolor: 'primary.light', color: 'white' }} />
+                                                ))}
+                                            </Box>
+                                        </Box>
+                                    ))
+                                )}
+                            </Stack>
+                        </Box>
 
-                <div className="form-actions">
-                    <div className="modal-footer">
-                        <button type="button" className="btn-cancel" onClick={closeModal} style={{ flex: 1 }}>Close</button>
-                        <button type="button" className="btn-submit" style={{ background: color, borderColor: color, flex: 1 }} onClick={navToEdit}>
-                            Edit
-                        </button>
-                    </div>
-                </div>
-            </div>
+                        <Box>
+                            <Label>Sinks ({consumer.sinks.length})</Label>
+                            <Stack spacing={1} sx={{ mt: 1 }}>
+                                {consumer.sinks.length === 0 ? (
+                                    <Typography variant="caption" color="text.disabled">No sinks</Typography>
+                                ) : (
+                                    consumer.sinks.map((s, i) => (
+                                        <Box key={i} sx={{ p: 1.5, bgcolor: 'background.default', border: 1, borderColor: 'divider', borderRadius: 1.5 }}>
+                                            <Stack direction="row" alignItems="center" spacing={1}>
+                                                <BookOpen size={14} color="#f59e0b" />
+                                                <Typography variant="caption" fontWeight="bold">{getStreamName(s.streamId)}</Typography>
+                                            </Stack>
+                                        </Box>
+                                    ))
+                                )}
+                            </Stack>
+                        </Box>
+                    </Box>
+                </Box>
+
+                <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ pt: 2, borderTop: 1, borderColor: 'divider' }}>
+                    <Button variant="outlined" color="inherit" onClick={closeModal} sx={{ flex: 1, textTransform: 'none' }}>
+                        Close
+                    </Button>
+                    <Button variant="contained" onClick={navToEdit} sx={{ flex: 1, bgcolor: color, '&:hover': { bgcolor: color, filter: 'brightness(0.9)' }, textTransform: 'none' }}>
+                        Edit
+                    </Button>
+                </Stack>
+            </Stack>
         );
     }
 

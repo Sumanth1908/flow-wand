@@ -3,6 +3,7 @@ import { Check } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
 import { DataFlow } from '../../types';
+import { Stack, TextField, Typography, Box, Chip, IconButton } from '@mui/material';
 
 const PALETTE = [
     { value: '#00FA9A', label: 'Neon Emerald' }, { value: '#5C33FF', label: 'Deep Indigo' },
@@ -44,56 +45,92 @@ const FlowForm: React.FC<FlowFormProps> = ({ color }) => {
 
     return (
         <form onSubmit={handleSubmit}>
-            <div className="form-group">
-                <label>Flow Name</label>
-                <input className="form-input" value={name} autoFocus
-                    onChange={e => setName(e.target.value)} placeholder="e.g. order-processing-pipeline" />
-            </div>
+            <Stack spacing={3}>
+                <TextField
+                    label="Flow Name"
+                    fullWidth
+                    size="small"
+                    autoFocus
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="e.g. order-processing-pipeline"
+                    InputLabelProps={{ shrink: true }}
+                />
 
-            <div className="form-group">
-                <label>Color</label>
-                <div className="color-swatch-grid">
-                    {PALETTE.map(c => (
-                        <button
-                            key={c.value} type="button"
-                            className={`color-swatch ${flowColor === c.value ? 'color-swatch-selected' : ''}`}
-                            style={{ '--swatch-color': c.value } as React.CSSProperties}
-                            title={c.label}
-                            onClick={() => setColor(c.value)}
-                        >
-                            {flowColor === c.value && <Check size={12} />}
-                        </button>
-                    ))}
-                </div>
-            </div>
+                <Box>
+                    <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>Color</Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {PALETTE.map(c => (
+                            <IconButton
+                                key={c.value}
+                                onClick={() => setColor(c.value)}
+                                title={c.label}
+                                sx={{
+                                    width: 32,
+                                    height: 32,
+                                    bgcolor: c.value,
+                                    color: '#fff',
+                                    '&:hover': { bgcolor: c.value, filter: 'brightness(1.1)' },
+                                    boxShadow: flowColor === c.value ? `0 0 0 3px ${c.value}40` : 'none',
+                                    border: 2,
+                                    borderColor: flowColor === c.value ? 'background.paper' : 'transparent',
+                                }}
+                            >
+                                {flowColor === c.value && <Check size={16} strokeWidth={3} />}
+                            </IconButton>
+                        ))}
+                    </Box>
+                </Box>
 
-            <div className="form-group">
-                <label>Description <span className="optional">(optional)</span></label>
-                <textarea className="form-textarea" rows={2} value={desc}
-                    onChange={e => setDesc(e.target.value)} placeholder="Describe this flow…" />
-            </div>
+                <TextField
+                    label={<>Description <Typography component="span" variant="caption" color="text.secondary">(optional)</Typography></>}
+                    fullWidth
+                    size="small"
+                    multiline
+                    rows={2}
+                    value={desc}
+                    onChange={e => setDesc(e.target.value)}
+                    placeholder="Describe this flow…"
+                    InputLabelProps={{ shrink: true }}
+                />
 
-            <div className="form-group">
-                <label>Consumers in this Flow</label>
-                {consumers.length === 0
-                    ? <div className="empty-selection">No consumers yet — create consumers first.</div>
-                    : (
-                        <div className="chip-selector">
-                            {consumers.map(j => (
-                                <button
-                                    key={j.id} type="button"
-                                    className={`chip ${consumerIds.includes(j.id) ? 'selected' : ''}`}
-                                    style={consumerIds.includes(j.id) ? { borderColor: flowColor, color: flowColor, background: `${flowColor}18` } as React.CSSProperties : {}}
-                                    onClick={() => setConsumerIds(toggle(consumerIds, j.id))}
-                                >
-                                    {consumerIds.includes(j.id) && <Check size={12} />}
-                                    {j.name}
-                                </button>
-                            ))}
-                        </div>
-                    )
-                }
-            </div>
+                <Box>
+                    <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>Consumers in this Flow</Typography>
+                    {consumers.length === 0 ? (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            No consumers yet — create consumers first.
+                        </Typography>
+                    ) : (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                            {consumers.map(j => {
+                                const isSelected = consumerIds.includes(j.id);
+                                return (
+                                    <Chip
+                                        key={j.id}
+                                        label={j.name}
+                                        onClick={() => setConsumerIds(toggle(consumerIds, j.id))}
+                                        variant={isSelected ? 'filled' : 'outlined'}
+                                        size="small"
+                                        icon={isSelected ? <Check size={14} /> : undefined}
+                                        sx={{
+                                            borderRadius: 1.5,
+                                            fontWeight: isSelected ? 'bold' : 'normal',
+                                            transition: 'all 0.2s',
+                                            ...(isSelected && {
+                                                bgcolor: `${flowColor}26`, // 15% opacity
+                                                color: flowColor,
+                                                borderColor: flowColor,
+                                                border: 1,
+                                                '& .lucide': { color: flowColor }
+                                            }),
+                                        }}
+                                    />
+                                );
+                            })}
+                        </Box>
+                    )}
+                </Box>
+            </Stack>
 
             <ModalFooter color={color} isEditing={!!editingItem} />
         </form>

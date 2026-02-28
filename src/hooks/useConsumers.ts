@@ -16,7 +16,11 @@ export const buildConsumerActions = (
         name: string,
         description = '',
         sources: StreamConnection[] = [],
-        sinks: StreamConnection[] = []
+        sinks: StreamConnection[] = [],
+        routingStrategy: Consumer['routingStrategy'] = 'broadcast',
+        failureRate = 0.05,
+        transformScript = '',
+        routingRules: Consumer['routingRules'] = []
     ) => {
         if (!projectId) return false;
         const consumer: Consumer = {
@@ -25,6 +29,10 @@ export const buildConsumerActions = (
             description,
             sources,
             sinks,
+            routingStrategy,
+            failureRate,
+            transformScript,
+            routingRules
         };
         storage.createConsumer(projectId, consumer);
         setConsumers([...getConsumers(), consumer]);

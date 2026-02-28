@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
 import { EventType } from '../../types';
+import { Stack, TextField, Typography } from '@mui/material';
+import { TriangleAlert } from 'lucide-react';
 
 const DEFAULT_SCHEMA = JSON.stringify({
     type: 'object',
@@ -53,46 +54,49 @@ const EventForm: React.FC<EventFormProps> = ({ color }) => {
 
     return (
         <form onSubmit={handleSubmit}>
-            <div className="form-group">
-                <label>Event Name</label>
-                <input
-                    className="form-input"
-                    value={name} autoFocus
+            <Stack spacing={3}>
+                <TextField
+                    label="Event Name"
+                    fullWidth
+                    size="small"
+                    autoFocus
+                    value={name}
                     onChange={e => setName(e.target.value)}
                     placeholder="e.g. OrderPlaced, UserSignedUp"
+                    helperText="Use PascalCase for event names"
+                    InputLabelProps={{ shrink: true }}
                 />
-                <span className="form-hint">Use PascalCase for event names</span>
-            </div>
 
-            <div className="form-group">
-                <label>Description <span className="optional">(optional)</span></label>
-                <textarea
-                    className="form-textarea" rows={2} value={desc}
+                <TextField
+                    label={<>Description <Typography component="span" variant="caption" color="text.secondary">(optional)</Typography></>}
+                    fullWidth
+                    size="small"
+                    multiline
+                    rows={2}
+                    value={desc}
                     onChange={e => setDesc(e.target.value)}
                     placeholder="Describe when this event occurs…"
+                    InputLabelProps={{ shrink: true }}
                 />
-            </div>
 
-            <div className="form-group">
-                <label>
-                    JSON Schema
-                    <span className="optional"> (optional)</span>
-                </label>
-                <textarea
-                    className={`form-textarea form-textarea-mono${schemaError ? ' form-input-error' : ''}`}
-                    rows={10}
+                <TextField
+                    label={<>JSON Schema <Typography component="span" variant="caption" color="text.secondary">(optional)</Typography></>}
+                    fullWidth
+                    size="small"
+                    multiline
+                    rows={8}
                     value={schema}
                     onChange={handleSchemaChange}
                     spellCheck={false}
-                    placeholder='{}'
+                    placeholder="{}"
+                    error={!!schemaError}
+                    helperText={schemaError}
+                    InputProps={{
+                        sx: { fontFamily: 'monospace', fontSize: 13 },
+                    }}
+                    InputLabelProps={{ shrink: true }}
                 />
-                {schemaError && (
-                    <div className="form-error">
-                        <AlertTriangle size={12} />
-                        <span>{schemaError}</span>
-                    </div>
-                )}
-            </div>
+            </Stack>
 
             <ModalFooter color={color} isEditing={!!editingItem} disabled={!!schemaError || !name.trim()} />
         </form>

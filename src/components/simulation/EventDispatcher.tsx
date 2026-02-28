@@ -2,8 +2,8 @@
  * components/simulation/EventDispatcher.tsx
  */
 import React, { useState, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Play, X, Radio, ChevronDown, Code2, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Play, Radio, Code2, TriangleAlert, RotateCcw, FileJson } from 'lucide-react';
+import { Box, Typography, Stack, Button, IconButton, Select, MenuItem, TextField, Divider } from '@mui/material';
 import useStore from '../../store/useStore';
 
 const DEFAULT_PAYLOAD = JSON.stringify({ key: 'value', timestamp: '{{now}}' }, null, 2);
@@ -19,21 +19,39 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
     const startSimulation = useStore(s => s.startSimulation);
     const setMaxLoops = useStore(s => s.setMaxLoops);
     const simulation = useStore(s => s.simulation);
+    const editingItem = useStore(s => s.editingItem);
 
-    const [selectedStreamId, setSelectedStreamId] = useState('');
+    const [selectedStreamId, setSelectedStreamId] = useState<string>(
+        (typeof editingItem === 'string' ? editingItem : '') ||
+        (streams.length > 0 ? streams[0].id : '')
+    );
+    const [selectedEventId, setSelectedEventId] = useState('');
     const [payload, setPayload] = useState(DEFAULT_PAYLOAD);
     const [payloadError, setPayloadError] = useState('');
-    const [showPayload, setShowPayload] = useState(false);
-    const [eventCount, setEventCount] = useState(1);
+    const [showPayload, setShowPayload] = useState(true);
 
     const selectableStreams = streams;
 
+    // Load payload from event schema when selected
     useEffect(() => {
-        if (!selectedStreamId) {
-            setPayload(DEFAULT_PAYLOAD);
-            setPayloadError('');
-            return;
+        if (selectedEventId) {
+            const event = events.find(e => e.id === selectedEventId);
+            if (event && event.schema) {
+                try {
+                    // Try to prettify the schema for the editor
+                    const pretty = JSON.stringify(JSON.parse(event.schema), null, 2);
+                    setPayload(pretty);
+                    setPayloadError('');
+                } catch {
+                    setPayload(event.schema);
+                }
+            }
         }
+    }, [selectedEventId, events]);
+
+    // Intelligent payload inferring when stream changes (existing logic)
+    useEffect(() => {
+        if (!selectedStreamId || selectedEventId) return;
 
         const streamEventIds = new Set<string>();
         consumers.forEach(consumer => {
@@ -63,20 +81,15 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
 
                 setPayload(newPayload);
                 setPayloadError('');
-                return;
             } catch (err) {
-                console.error("Failed to parse event schema", err);
+                console.error("Failed to auto-infer payload", err);
             }
         }
-
-        setPayload(DEFAULT_PAYLOAD);
-        setPayloadError('');
-    }, [selectedStreamId, consumers, events]);
+    }, [selectedStreamId, selectedEventId, consumers, events]);
 
     const validatePayload = useCallback((val: string) => {
         if (!val.trim()) { setPayloadError(''); return true; }
         try {
-            // Substitute {{now}} before parsing so template is valid JSON
             JSON.parse(val.replace(/\{\{now\}\}/g, new Date().toISOString()));
             setPayloadError('');
             return true;
@@ -95,164 +108,144 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
         if (!selectedStreamId) return;
         if (!validatePayload(payload)) return;
 
-        const payloads = Array.from({ length: eventCount }).flatMap((_, i) => {
-            if (!payload.trim()) return [];
-            try {
-                const parsed = JSON.parse(
-                    payload.replace(/\{\{now\}\}/g, () => new Date().toISOString())
-                        .replace(/\{\{index\}\}/g, String(i + 1))
-                );
-                return Array.isArray(parsed) ? parsed : [parsed];
-            } catch {
-                return [];
-            }
-        });
-
-        onClose();
-        startSimulation(selectedStreamId, payloads);
+        try {
+            const parsed = JSON.parse(
+                payload.replace(/\{\{now\}\}/g, () => new Date().toISOString())
+                    .replace(/\{\{index\}\}/g, "1")
+            );
+            const payloads = Array.isArray(parsed) ? parsed : [parsed];
+            onClose();
+            startSimulation(selectedStreamId, payloads);
+        } catch {
+            // Fallback
+            onClose();
+            startSimulation(selectedStreamId, {});
+        }
     };
 
-    if (simulation.active) return null;
+    if (simulation.active) return (
+        <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">Simulation is already running.</Typography>
+        </Box>
+    );
 
     return (
-        <AnimatePresence>
-            <motion.div
-                className="event-dispatcher"
-                initial={{ opacity: 0, scale: 0.92, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: -10 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 400 }}
-            >
-                {/* Header */}
-                <div className="ed-header">
-                    <div className="ed-title">
-                        <Radio size={15} />
-                        <span>Fire Event</span>
-                    </div>
-                    <button className="ed-close" onClick={onClose} title="Close">
-                        <X size={14} />
-                    </button>
-                </div>
+        <Stack spacing={3} sx={{ mt: 1 }}>
+            <Box>
+                <Typography variant="overline" color="text.secondary" fontWeight="900" sx={{ display: 'block', mb: 1, letterSpacing: 1.2 }}>Entry Point</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+                    Select where the event enters the system and which payload template to use.
+                </Typography>
 
-                <p className="ed-hint">
-                    Pick a source stream and optionally attach a JSON payload to inject into your pipeline.
-                </p>
-
-                {selectableStreams.length === 0 ? (
-                    <div className="ed-empty">
-                        Create an event stream first to simulate events.
-                    </div>
-                ) : (
-                    <>
-                        {/* Stream selector */}
-                        <div className="ed-select-wrap">
-                            <select
-                                className="ed-select"
-                                value={selectedStreamId}
-                                onChange={e => setSelectedStreamId(e.target.value)}
-                            >
-                                <option value="">— choose a stream —</option>
-                                {selectableStreams.map(t => (
-                                    <option key={t.id} value={t.id}>{t.name} ({t.type})</option>
-                                ))}
-                            </select>
-                            <ChevronDown size={14} className="ed-select-icon" />
-                        </div>
-
-                        {/* Event Count selector */}
-                        <div className="ed-select-wrap" style={{ marginTop: '8px' }}>
-                            <select
-                                className="ed-select"
-                                value={eventCount}
-                                onChange={e => setEventCount(Number(e.target.value))}
-                            >
-                                {Array.from({ length: 10 }).map((_, i) => (
-                                    <option key={i + 1} value={i + 1}>{i + 1} {i === 0 ? 'Event' : 'Events'}</option>
-                                ))}
-                            </select>
-                            <ChevronDown size={14} className="ed-select-icon" />
-                        </div>
-
-                        {/* Max Loops selector */}
-                        <div className="ed-select-wrap" style={{ marginTop: '8px' }}>
-                            <select
-                                className="ed-select"
-                                value={simulation.maxLoops || 1}
-                                onChange={e => setMaxLoops(Number(e.target.value))}
-                            >
-                                <option value={1}>1 Loop Max (Stop immediately if cycle)</option>
-                                <option value={2}>2 Loops Max</option>
-                                <option value={5}>5 Loops Max</option>
-                            </select>
-                            <ChevronDown size={14} className="ed-select-icon" />
-                        </div>
-
-                        {/* Payload toggle */}
-                        <button
-                            type="button"
-                            className={`ed-payload-toggle ${showPayload ? 'active' : ''}`}
-                            onClick={() => setShowPayload(v => !v)}
+                <Stack spacing={2.5}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" fontWeight="600">Source Stream</Typography>
+                        <Select
+                            size="small"
+                            value={selectedStreamId}
+                            onChange={e => setSelectedStreamId(e.target.value)}
+                            displayEmpty
+                            sx={{ width: 280, height: 36, fontSize: '13px' }}
                         >
-                            <Code2 size={13} />
-                            <span>{showPayload ? 'Hide Payload' : 'Add Payload'}</span>
-                            <span className="ed-payload-badge">JSON</span>
-                        </button>
+                            <MenuItem value="" disabled>— choose a stream —</MenuItem>
+                            {selectableStreams.map(t => (
+                                <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                            ))}
+                        </Select>
+                    </Box>
 
-                        {/* Payload editor */}
-                        <AnimatePresence>
-                            {showPayload && (
-                                <motion.div
-                                    className="ed-payload-editor"
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    <div className="ed-payload-header">
-                                        <span className="ed-payload-label">Payload</span>
-                                        <span className="ed-template-hint" title="{{now}} will be replaced with the current ISO timestamp, and {{index}} with the event number">
-                                            <code>{'{{now}}'}</code> <code>{'{{index}}'}</code>
-                                        </span>
-                                        <button
-                                            type="button"
-                                            className="ed-reset-btn"
-                                            title="Reset to default"
-                                            onClick={() => { setPayload(DEFAULT_PAYLOAD); setPayloadError(''); }}
-                                        >
-                                            <RotateCcw size={11} />
-                                        </button>
-                                    </div>
-                                    <textarea
-                                        className={`ed-payload-textarea${payloadError ? ' ed-payload-error' : ''}`}
-                                        value={payload}
-                                        onChange={handlePayloadChange}
-                                        spellCheck={false}
-                                        rows={6}
-                                        placeholder='{ "key": "value" }'
-                                    />
-                                    {payloadError && (
-                                        <div className="ed-payload-err-msg">
-                                            <AlertTriangle size={11} />
-                                            <span>{payloadError}</span>
-                                        </div>
-                                    )}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        <button
-                            className="btn-fire"
-                            onClick={handleFire}
-                            disabled={!selectedStreamId || !!payloadError}
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Stack spacing={0.5}>
+                            <Typography variant="body2" fontWeight="600">Event Template</Typography>
+                            <Typography variant="caption" color="text.secondary">Pre-load a specific event type's schema</Typography>
+                        </Stack>
+                        <Select
+                            size="small"
+                            value={selectedEventId}
+                            onChange={e => setSelectedEventId(e.target.value)}
+                            displayEmpty
+                            sx={{ width: 280, height: 36, fontSize: '13px' }}
                         >
-                            <Play size={14} />
-                            <span>Send {eventCount} {eventCount === 1 ? 'Event' : 'Events'}</span>
-                        </button>
-                    </>
-                )}
-            </motion.div>
-        </AnimatePresence>
+                            <MenuItem value="">— None (Generic / Auto) —</MenuItem>
+                            {events.map(ev => (
+                                <MenuItem key={ev.id} value={ev.id}>{ev.name}</MenuItem>
+                            ))}
+                        </Select>
+                    </Box>
+                </Stack>
+            </Box>
+
+            <Divider />
+
+            <Box>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="overline" color="text.secondary" fontWeight="900" sx={{ letterSpacing: 1.2 }}>Payload Editor</Typography>
+                        <Box sx={{ ml: 1, px: 0.6, py: 0.2, bgcolor: 'primary.main', color: '#fff', borderRadius: 0.5, fontSize: 9, fontWeight: 'bold' }}>JSON</Box>
+                    </Stack>
+                    <Stack direction="row" spacing={1}>
+                        <IconButton size="small" onClick={() => { setPayload(DEFAULT_PAYLOAD); setSelectedEventId(''); setPayloadError(''); }} title="Reset">
+                            <RotateCcw size={14} />
+                        </IconButton>
+                    </Stack>
+                </Stack>
+
+                <Box sx={{ bgcolor: 'action.hover', p: 2, borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                    <TextField
+                        multiline
+                        rows={10}
+                        value={payload}
+                        onChange={handlePayloadChange}
+                        fullWidth
+                        error={!!payloadError}
+                        variant="outlined"
+                        InputProps={{
+                            sx: {
+                                fontFamily: 'monospace',
+                                fontSize: 13,
+                                bgcolor: 'background.paper'
+                            }
+                        }}
+                    />
+                    {payloadError ? (
+                        <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1.5, color: 'error.main' }}>
+                            <TriangleAlert size={14} />
+                            <Typography variant="caption" fontWeight="600">{payloadError}</Typography>
+                        </Stack>
+                    ) : (
+                        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1, textAlign: 'right' }}>
+                            Tip: use {"{{now}}"} for current time
+                        </Typography>
+                    )}
+                </Box>
+            </Box>
+
+            <Box sx={{ pt: 1 }}>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    disabled={!selectedStreamId || !!payloadError}
+                    onClick={handleFire}
+                    startIcon={<Play size={18} />}
+                    fullWidth
+                    size="large"
+                    sx={{ py: 1.5, fontWeight: 'bold', borderRadius: 2 }}
+                >
+                    Inject Event & Start Simulation
+                </Button>
+            </Box>
+        </Stack>
     );
 };
+
+// Simple Badge component if MUI Badge isn't styled this way in their version
+const Badge: React.FC<{ badgeContent: string, color: string, children: React.ReactNode, sx?: any }> = ({ badgeContent, children }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        {children}
+        <Box sx={{ ml: 1, px: 0.6, py: 0.2, bgcolor: 'primary.main', color: '#fff', borderRadius: 0.5, fontSize: 9, fontWeight: 'bold' }}>
+            {badgeContent}
+        </Box>
+    </Box>
+);
 
 export default EventDispatcher;

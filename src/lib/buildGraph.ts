@@ -17,9 +17,10 @@ export interface BuildGraphParams {
     simulation: SimulationState;
     traceMode?: boolean;
     layoutDirection?: string;
+    nodePositions?: Record<string, { x: number, y: number }>;
 }
 
-const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => {
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR', nodePositions?: Record<string, { x: number, y: number }>) => {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
 
@@ -51,10 +52,14 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
         node.sourcePosition = isHorizontal ? Position.Right : Position.Bottom;
 
         // dagre sets the coordinates to the center of the node
-        node.position = {
-            x: nodeWithPosition.x - NODE_WIDTH / 2,
-            y: nodeWithPosition.y - NODE_HEIGHT / 2,
-        };
+        if (nodePositions && nodePositions[node.id]) {
+            node.position = nodePositions[node.id];
+        } else {
+            node.position = {
+                x: nodeWithPosition.x - NODE_WIDTH / 2,
+                y: nodeWithPosition.y - NODE_HEIGHT / 2,
+            };
+        }
     });
 
     return { nodes, edges };
@@ -71,7 +76,7 @@ const consumerSimState = (consumerId: string, sim: SimulationState) => {
     return 'idle';
 }
 
-export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowId, simulation, traceMode, layoutDirection = 'LR' }: BuildGraphParams): { nodes: Node[], edges: Edge[] } => {
+export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowId, simulation, traceMode, layoutDirection = 'LR', nodePositions }: BuildGraphParams): { nodes: Node[], edges: Edge[] } => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
 
@@ -210,6 +215,6 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
         });
     });
 
-    return getLayoutedElements(nodes, edges, layoutDirection);
+    return getLayoutedElements(nodes, edges, layoutDirection, nodePositions);
 }
 
