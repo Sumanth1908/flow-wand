@@ -1,13 +1,15 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { motion } from 'framer-motion';
-import { Zap } from 'lucide-react';
+import { Zap, Server, Database, Braces } from 'lucide-react';
 import { Paper, Box, Stack, Typography, useTheme } from '@mui/material';
 import useStore from '../../store/useStore';
+import { ConsumerType } from '../../types';
 
 type ConsumerNodeData = {
     label: string;
     description?: string;
+    type?: ConsumerType;
     sourceCount?: number;
     sinkCount?: number;
     simulationState?: 'active' | 'visited' | null;
@@ -25,6 +27,28 @@ const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>
     const isVisited = data.simulationState === 'visited';
 
     const nodeColor = data.activeFlowColor || theme.palette.secondary.main;
+    const consumerType = data.type || 'default';
+
+    // Different shapes based on type
+    const getBorderRadius = () => {
+        switch (consumerType) {
+            case 'lambda': return 16;     // Pill shape
+            case 'service': return 1;     // Sharp rectangle
+            case 'database': return 4;    // Slightly rounded (will use custom top/bottom styling below to look cylindrical)
+            case 'default':
+            default: return 3;            // Standard rounded corner
+        }
+    };
+
+    const getTypeIcon = () => {
+        switch (consumerType) {
+            case 'lambda': return <Braces size={14} />;
+            case 'service': return <Server size={14} />;
+            case 'database': return <Database size={14} />;
+            case 'default':
+            default: return <Zap size={14} />;
+        }
+    };
 
     return (
         <motion.div
@@ -45,9 +69,12 @@ const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>
                 sx={{
                     minWidth: 240,
                     bgcolor: 'background.paper',
-                    borderRadius: 3,
-                    border: 2,
+                    borderRadius: getBorderRadius(),
+                    border: consumerType === 'database' ? 0 : 2,
+                    borderBottomWidth: consumerType === 'database' ? 6 : 2,
+                    borderTopWidth: consumerType === 'database' ? 6 : 2,
                     borderColor: selected ? nodeColor : (isVisited ? `color-mix(in srgb, ${nodeColor} 40%, ${theme.palette.divider})` : 'divider'),
+                    borderStyle: 'solid',
                     overflow: 'hidden',
                     transition: 'all 0.2s ease',
                     position: 'relative',
@@ -73,13 +100,16 @@ const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>
                 >
                     <Box sx={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: 24, height: 24, borderRadius: 1,
+                        width: 24, height: 24, borderRadius: consumerType === 'lambda' ? '50%' : 1,
                         bgcolor: `color-mix(in srgb, ${nodeColor} 15%, transparent)`,
                         color: nodeColor,
                         mr: 1
                     }}>
-                        <Zap size={14} />
+                        {getTypeIcon()}
                     </Box>
+                    <Typography variant="caption" fontWeight="900" sx={{ opacity: 0.7, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.5 }}>
+                        {consumerType === 'default' ? 'Consumer' : consumerType}
+                    </Typography>
                 </Stack>
 
                 {/* Node Body */}

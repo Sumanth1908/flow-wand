@@ -20,13 +20,15 @@ export const buildConsumerActions = (
         routingStrategy: Consumer['routingStrategy'] = 'broadcast',
         failureRate = 0.05,
         transformScript = '',
-        routingRules: Consumer['routingRules'] = []
+        routingRules: Consumer['routingRules'] = [],
+        type: Consumer['type'] = 'default'
     ) => {
         if (!projectId) return false;
         const consumer: Consumer = {
             id: uuid(),
             name,
             description,
+            type,
             sources,
             sinks,
             routingStrategy,

@@ -58,8 +58,28 @@ const SnapshotPanel: React.FC<SnapshotPanelProps> = ({ onClose }) => {
                 const allNodes = getNodes();
                 if (allNodes.length === 0) return;
 
-                const nodesBounds = getNodesBounds(allNodes);
-                const padding = 60;
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const node of allNodes) {
+                    const el = document.querySelector(`[data-id="${node.id}"]`) as HTMLElement;
+                    const w = node.measured?.width ?? node.width ?? el?.offsetWidth ?? 300;
+                    const h = node.measured?.height ?? node.height ?? el?.offsetHeight ?? 200;
+                    const x = node.position.x;
+                    const y = node.position.y;
+                    if (x < minX) minX = x;
+                    if (y < minY) minY = y;
+                    if (x + w > maxX) maxX = x + w;
+                    if (y + h > maxY) maxY = y + h;
+                }
+
+                // Consider edges curving out of bounds
+                const nodesBounds = {
+                    x: minX === Infinity ? 0 : minX,
+                    y: minY === Infinity ? 0 : minY,
+                    width: minX === Infinity ? 0 : maxX - minX,
+                    height: minY === Infinity ? 0 : maxY - minY,
+                };
+
+                const padding = 100;
                 const imageWidth = nodesBounds.width + padding * 2;
                 const imageHeight = nodesBounds.height + padding * 2;
 
@@ -82,6 +102,7 @@ const SnapshotPanel: React.FC<SnapshotPanelProps> = ({ onClose }) => {
                         width: `${imageWidth}px`,
                         height: `${imageHeight}px`,
                         transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+                        transformOrigin: 'top left',
                     },
                 };
 

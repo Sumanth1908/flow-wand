@@ -13,6 +13,8 @@ export type LayoutDirection = 'LR' | 'TB';
 export type EdgePathStyle = 'bezier' | 'step' | 'straight';
 export type RoutingStrategy = 'broadcast' | 'conditional' | 'failover';
 
+export type ConsumerType = 'default' | 'lambda' | 'service' | 'database';
+
 export interface EventStream {
     id: string;
     name: string;
@@ -41,6 +43,7 @@ export interface Consumer {
     id: string;
     name: string;
     description: string;
+    type?: ConsumerType;
     sources: StreamConnection[];
     sinks: StreamConnection[];
     routingStrategy?: RoutingStrategy;
@@ -121,6 +124,7 @@ export interface StoreState {
     layoutDirection: LayoutDirection;
     edgePathStyle: EdgePathStyle;
     nodePositions: Record<string, { x: number, y: number }>;
+    edgeRoutings: Record<string, { cx: number, cy: number }>;
 
     init: () => void;
     toggleTheme: () => void;
@@ -130,6 +134,7 @@ export interface StoreState {
     switchProject: (projectId: string) => void;
     saveProject: () => void;
     updateNodePositions: (positions: Record<string, { x: number, y: number }>) => void;
+    updateEdgeRouting: (edgeId: string, point: { cx: number, cy: number } | null) => void;
     resetLayout: () => void;
     exportProject: () => void;
     importProject: (file: File) => Promise<Project>;
@@ -139,7 +144,17 @@ export interface StoreState {
     deleteStream: (id: string) => void;
     isStreamNameUnique: (name: string, excludeId?: string | null) => boolean;
 
-    addConsumer: (name: string, description: string, sources: StreamConnection[], sinks: StreamConnection[], routingStrategy?: RoutingStrategy, failureRate?: number, transformScript?: string, routingRules?: RoutingRule[]) => boolean;
+    addConsumer: (
+        name: string,
+        description?: string,
+        sources?: StreamConnection[],
+        sinks?: StreamConnection[],
+        routingStrategy?: Consumer['routingStrategy'],
+        failureRate?: number,
+        transformScript?: string,
+        routingRules?: Consumer['routingRules'],
+        type?: ConsumerType
+    ) => boolean;
     updateConsumer: (id: string, patch: Partial<Consumer>) => boolean;
     deleteConsumer: (id: string) => void;
 

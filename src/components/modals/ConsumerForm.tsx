@@ -29,6 +29,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
     // General State
     const [name, setName] = useState(editingItem?.name || '');
     const [desc, setDesc] = useState(editingItem?.description || '');
+    const [consumerType, setConsumerType] = useState<Consumer['type']>(editingItem?.type || 'default');
 
     // Connection State
     const [sources, setSources] = useState<StreamConnection[]>(editingItem?.sources || []);
@@ -45,9 +46,10 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
         e.preventDefault();
         if (!name.trim()) return;
 
-        const payload = {
+        const payload: Partial<Consumer> = {
             name: name.trim(),
             description: desc.trim(),
+            type: consumerType,
             sources,
             sinks,
             routingStrategy,
@@ -60,14 +62,15 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
             updateConsumer(editingItem.id, payload);
         } else {
             addConsumer(
-                payload.name,
+                payload.name as string,
                 payload.description,
                 payload.sources,
                 payload.sinks,
                 payload.routingStrategy,
                 payload.failureRate,
                 payload.transformScript,
-                payload.routingRules
+                payload.routingRules,
+                payload.type
             );
         }
         closeModal();
@@ -135,6 +138,19 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                 value={desc} onChange={e => setDesc(e.target.value)}
                                 InputLabelProps={{ shrink: true }}
                             />
+                            <TextField
+                                label="Type"
+                                select
+                                size="small"
+                                value={consumerType}
+                                onChange={e => setConsumerType(e.target.value as Consumer['type'])}
+                                sx={{ minWidth: 150 }}
+                            >
+                                <MenuItem value="default">Default</MenuItem>
+                                <MenuItem value="lambda">Lambda</MenuItem>
+                                <MenuItem value="service">Service</MenuItem>
+                                <MenuItem value="database">Database</MenuItem>
+                            </TextField>
                         </Stack>
 
                         <Stack direction="row" spacing={3}>

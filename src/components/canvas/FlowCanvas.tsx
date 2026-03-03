@@ -41,9 +41,11 @@ const FlowCanvasInner: React.FC = () => {
     const nodePositions = useStore(s => s.nodePositions);
     const updateNodePositions = useStore(s => s.updateNodePositions);
     const activeProjectId = useStore(s => s.activeProjectId);
+    const edgeRoutings = useStore(s => s.edgeRoutings);
 
     const { nodes: initialNodes, edges: initialEdges } = useMemo(
-        () => buildGraph({ streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection, nodePositions }),
+        () => buildGraph({ streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection, nodePositions, edgeRoutings }),
+        // Don't re-run full graph build just because edge routing changes
         [streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection, nodePositions]
     );
 
