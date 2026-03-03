@@ -15,6 +15,7 @@ interface ProjectData {
     flows: DataFlow[];
     events: EventType[];
     nodePositions?: Record<string, { x: number, y: number }>;
+    edgeRoutings?: Record<string, { cx: number, cy: number }>;
 }
 
 interface AppPrefs {

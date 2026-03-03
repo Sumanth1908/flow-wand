@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BaseEdge, getBezierPath, getStraightPath, getSmoothStepPath, EdgeLabelRenderer, EdgeProps } from '@xyflow/react';
+import { BaseEdge, getBezierPath, getStraightPath, getSmoothStepPath, EdgeLabelRenderer, EdgeProps, useReactFlow } from '@xyflow/react';
 import useStore from '../../store/useStore';
 
 type AnimatedEdgeData = {
@@ -120,25 +120,44 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
     markerEnd,
     style,
 }) => {
-    // Global style settings 
     const edgeStyleMode = useStore(s => s.edgeStyle);
     const edgeShape = useStore(s => s.edgeShape);
     const edgePathStyle = useStore(s => s.edgePathStyle);
+    const themeColorMode = useStore(s => s.theme);
+    const updateEdgeRouting = useStore(s => s.updateEdgeRouting);
+    const { screenToFlowPosition } = useReactFlow();
+
+    const [isHovered, setIsHovered] = useState(false);
+    const [isDraggingNode, setIsDraggingNode] = useState(false);
 
     const pathParams = {
         sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition
     };
 
     let edgePath, labelX, labelY;
-    if (edgePathStyle === 'straight') {
+    const anyEdgeData = data as any;
+    // We override routing through Zustand directly in the component so it stays completely real-time without re-firing buildGraph
+    const globalRoutings = useStore(s => s.edgeRoutings);
+    const routingPoint = globalRoutings[id] || (anyEdgeData?.routing as { cx: number, cy: number } | undefined);
+
+    if (routingPoint) {
+        edgePath = `M ${sourceX} ${sourceY} Q ${routingPoint.cx} ${routingPoint.cy} ${targetX} ${targetY}`;
+        labelX = 0.25 * sourceX + 0.5 * routingPoint.cx + 0.25 * targetX;
+        labelY = 0.25 * sourceY + 0.5 * routingPoint.cy + 0.25 * targetY;
+    } else if (edgePathStyle === 'straight') {
         [edgePath, labelX, labelY] = getStraightPath(pathParams);
     } else if (edgePathStyle === 'step') {
-        [edgePath, labelX, labelY] = getSmoothStepPath({ ...pathParams, borderRadius: 0 });
+        [edgePath, labelX, labelY] = getSmoothStepPath({ ...pathParams, borderRadius: 16 });
     } else {
-        [edgePath, labelX, labelY] = getBezierPath(pathParams);
+        let curvature = 0.25;
+        if (anyEdgeData?.overlapCount && anyEdgeData.overlapCount > 1) {
+            const index = anyEdgeData.overlapIndex || 0;
+            const offset = Math.floor((index + 1) / 2) * 0.3;
+            curvature = index === 0 ? 0.25 : index % 2 === 1 ? 0.25 + offset : 0.25 - offset;
+        }
+        [edgePath, labelX, labelY] = getBezierPath({ ...pathParams, curvature });
     }
 
-    const [isHovered, setIsHovered] = useState(false);
     const edgeData = data as AnimatedEdgeData | undefined;
     const isActive = edgeData?.simulationState === 'active';
     const isVisited = edgeData?.simulationState === 'visited';
@@ -146,9 +165,11 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
 
     // Default flow color, overridden by warning cycle
     const flowColor = isWarning ? '#ef4444' : (edgeData?.activeFlowColor || '#6366f1');
+    const baseColor = themeColorMode === 'dark' ? '#94a3b8' : '#64748b'; // better visibility than #b4c4d4
     const hasEvents = edgeData?.eventNames && edgeData.eventNames.length > 0;
 
     const dashArray = edgeStyleMode === 'dashed' ? '8, 8' : edgeStyleMode === 'dotted' ? '3, 4' : 'none';
+    const isEdgeHovered = isHovered || isDraggingNode;
 
     return (
         <>
@@ -157,8 +178,8 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
                 markerEnd={markerEnd}
                 style={{
                     ...style,
-                    stroke: isActive || isVisited || isWarning ? flowColor : (isHovered ? '#e2e8f0' : (edgeData?.activeFlowColor || '#b4c4d4')),
-                    strokeWidth: isActive || isVisited || isWarning ? 3 : (isHovered ? 3 : 2),
+                    stroke: isActive || isVisited || isWarning ? flowColor : (isEdgeHovered ? '#cbd5e1' : (edgeData?.activeFlowColor || baseColor)),
+                    strokeWidth: isActive || isVisited || isWarning ? 3 : (isEdgeHovered ? 4 : 3),
                     strokeDasharray: dashArray,
                     opacity: (isVisited || isWarning) && !isActive ? 0.6 : 1,
                     filter: isActive || isWarning ? `drop-shadow(0 0 6px ${flowColor})` : 'none',
@@ -166,22 +187,67 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
                 }}
             />
 
-            {/* Invisible wider edge for easier hovering */}
-            <path
-                d={edgePath}
-                fill="none"
-                stroke="transparent"
-                strokeWidth={20}
+            {/* Group for hover interactions */}
+            <g
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
-                style={{ cursor: 'pointer' }}
-            />
+            >
+                {/* Invisible wider edge for easier hovering */}
+                <path
+                    d={edgePath}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={20}
+                    style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+                />
+            </g>
+
+            {/* Edge Control Handle */}
+            {isEdgeHovered && (
+                <circle
+                    cx={routingPoint ? routingPoint.cx : labelX}
+                    cy={routingPoint ? routingPoint.cy : labelY}
+                    r={8}
+                    fill={flowColor}
+                    stroke="#ffffff"
+                    strokeWidth={3}
+                    style={{ cursor: 'grab', pointerEvents: 'all' }}
+                    onPointerDown={(e) => {
+                        e.stopPropagation();
+                        // Call preventDefault specifically for edge grab events to not interact with panning
+                        e.preventDefault();
+                        setIsDraggingNode(true);
+
+                        const documentBody = document.body;
+                        documentBody.style.cursor = 'grabbing';
+
+                        const handlePointerMove = (evt: PointerEvent) => {
+                            const fp = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
+                            updateEdgeRouting(id, { cx: fp.x, cy: fp.y });
+                        };
+
+                        const handlePointerUp = () => {
+                            window.removeEventListener('pointermove', handlePointerMove);
+                            window.removeEventListener('pointerup', handlePointerUp);
+                            setIsDraggingNode(false);
+                            documentBody.style.cursor = '';
+                        };
+
+                        window.addEventListener('pointermove', handlePointerMove);
+                        window.addEventListener('pointerup', handlePointerUp);
+                    }}
+                    onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        updateEdgeRouting(id, null);
+                    }}
+                />
+            )}
 
             {(isActive || isWarning) && (
                 <MovingDots edgePath={edgePath} flowColor={flowColor} speed={edgeData?.speed || 1} shape={edgeShape} />
             )}
 
-            {(isHovered) && (
+            {isEdgeHovered && (
                 <EdgeLabelRenderer>
                     <div
                         style={{

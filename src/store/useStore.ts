@@ -66,6 +66,7 @@ const useStore = create<StoreState>((set, get) => {
         layoutDirection: 'LR',
         edgePathStyle: 'bezier',
         nodePositions: {},
+        edgeRoutings: {},
 
         // ── App init ─────────────────────────────────────────────
         init: () => {
@@ -100,7 +101,7 @@ const useStore = create<StoreState>((set, get) => {
                 projects: [...s.projects, project],
                 activeProjectId: project.id,
                 streams: [], consumers: [], flows: [], events: [],
-                activeFlowId: null, lastSavedAt: null, nodePositions: {},
+                activeFlowId: null, lastSavedAt: null, nodePositions: {}, edgeRoutings: {},
             }));
             return project;
         },
@@ -137,6 +138,7 @@ const useStore = create<StoreState>((set, get) => {
                 activeFlowId: null,
                 lastSavedAt: project?.lastSavedAt || null,
                 nodePositions: data.nodePositions || {},
+                edgeRoutings: data.edgeRoutings || {},
             });
             get().clearSimulation();
         },
@@ -151,6 +153,7 @@ const useStore = create<StoreState>((set, get) => {
             // Ensure node positions are also persisted in the project data blob
             const data = storage.getProjectData(id);
             data.nodePositions = get().nodePositions;
+            data.edgeRoutings = get().edgeRoutings;
             storage.saveProjectData(id, data);
 
             set({ lastSavedAt: now, projects: storage.getProjects() });
@@ -159,6 +162,18 @@ const useStore = create<StoreState>((set, get) => {
 
         updateNodePositions: (positions) => {
             set(s => ({ nodePositions: { ...s.nodePositions, ...positions } }));
+        },
+
+        updateEdgeRouting: (edgeId, point) => {
+            set(s => {
+                const next = { ...s.edgeRoutings };
+                if (point === null) {
+                    delete next[edgeId];
+                } else {
+                    next[edgeId] = point;
+                }
+                return { edgeRoutings: next };
+            });
         },
 
         resetLayout: () => {
@@ -281,6 +296,7 @@ const useStore = create<StoreState>((set, get) => {
                 simulation: { ...get().simulation, active: false, eventLog: [], visitedStreamIds: [], visitedConsumerIds: [], activeEdgeIds: [] },
                 lastSavedAt: null,
                 nodePositions: {},
+                edgeRoutings: {},
             });
             showToast('Application reset to fresh state 🧹');
         },

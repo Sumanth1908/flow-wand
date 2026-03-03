@@ -18,6 +18,7 @@ export interface BuildGraphParams {
     traceMode?: boolean;
     layoutDirection?: string;
     nodePositions?: Record<string, { x: number, y: number }>;
+    edgeRoutings?: Record<string, { cx: number, cy: number }>;
 }
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR', nodePositions?: Record<string, { x: number, y: number }>) => {
@@ -76,7 +77,7 @@ const consumerSimState = (consumerId: string, sim: SimulationState) => {
     return 'idle';
 }
 
-export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowId, simulation, traceMode, layoutDirection = 'LR', nodePositions }: BuildGraphParams): { nodes: Node[], edges: Edge[] } => {
+export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowId, simulation, traceMode, layoutDirection = 'LR', nodePositions, edgeRoutings }: BuildGraphParams): { nodes: Node[], edges: Edge[] } => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
 
@@ -124,6 +125,7 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
         data: {
             label: j.name,
             description: j.description,
+            type: j.type,
             sourceCount: (j.sources || []).length,
             sinkCount: (j.sinks || []).length,
             simulationState: consumerSimState(j.id, simulation),
@@ -174,6 +176,7 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
                         const ev = events.find(e => e.id === eid);
                         return ev ? ev.name : null;
                     }).filter(Boolean),
+                    routing: edgeRoutings?.[edgeId] || null,
                 },
             });
         });
@@ -210,9 +213,30 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
                         const ev = events.find(e => e.id === eid);
                         return ev ? ev.name : null;
                     }).filter(Boolean),
+                    routing: edgeRoutings?.[edgeId] || null,
                 },
             });
         });
+    });
+
+    // Process overlaps
+    const edgeCounts = new Map<string, number>();
+    const pairMap = new Map<string, string>();
+    edges.forEach(e => {
+        const pairId = e.source < e.target ? `${e.source}->${e.target}` : `${e.target}->${e.source}`;
+        edgeCounts.set(pairId, (edgeCounts.get(pairId) || 0) + 1);
+        pairMap.set(e.id, pairId);
+    });
+
+    const edgeIndices = new Map<string, number>();
+    edges.forEach(e => {
+        const pairId = pairMap.get(e.id)!;
+        const count = edgeCounts.get(pairId) || 1;
+        if (count > 1) {
+            const index = edgeIndices.get(pairId) || 0;
+            e.data = { ...e.data, overlapCount: count, overlapIndex: index };
+            edgeIndices.set(pairId, index + 1);
+        }
     });
 
     return getLayoutedElements(nodes, edges, layoutDirection, nodePositions);
