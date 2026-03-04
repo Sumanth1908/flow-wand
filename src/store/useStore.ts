@@ -67,6 +67,7 @@ const useStore = create<StoreState>((set, get) => {
         edgePathStyle: 'bezier',
         nodePositions: {},
         edgeRoutings: {},
+        hoveredEdgeId: null,
 
         // ── App init ─────────────────────────────────────────────
         init: () => {
@@ -175,6 +176,8 @@ const useStore = create<StoreState>((set, get) => {
                 return { edgeRoutings: next };
             });
         },
+
+        setHoveredEdge: (id) => set({ hoveredEdgeId: id }),
 
         resetLayout: () => {
             set({ nodePositions: {} });

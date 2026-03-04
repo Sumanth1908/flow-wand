@@ -141,9 +141,19 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
         },
     }));
 
+    // Helper: merge multiple entries for the same streamId into one (prevents duplicate edge IDs)
+    const mergeConnections = (connections: { streamId: string; eventIds: string[] }[]) => {
+        const map = new Map<string, string[]>();
+        for (const c of connections) {
+            const existing = map.get(c.streamId) || [];
+            map.set(c.streamId, [...new Set([...existing, ...c.eventIds])]);
+        }
+        return Array.from(map.entries()).map(([streamId, eventIds]) => ({ streamId, eventIds }));
+    };
+
     // Build edges
     visibleConsumers.forEach(consumer => {
-        (consumer.sources || []).forEach(source => {
+        mergeConnections(consumer.sources || []).forEach(source => {
             const streamId = source.streamId;
             if (!visibleStreamIds.has(streamId)) return;
             const edgeId = `${streamId}->${consumer.id}`;
@@ -162,12 +172,15 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
 
             edges.push({
                 id: edgeId, source: streamId, target: consumer.id, type: 'animated',
+                sourceHandle: 'src-out',
+                targetHandle: 'src-in',
                 markerEnd: {
                     type: MarkerType.ArrowClosed,
                     color: edgeColor
                 },
                 data: {
                     label: 'source',
+                    edgeTypeColor: '#6366f1',
                     simulationState: isCycle ? 'warning' : simState,
                     speed: (simulation?.speed || 1000) / 1000,
                     activeFlowColor,
@@ -180,7 +193,7 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
                 },
             });
         });
-        (consumer.sinks || []).forEach(sink => {
+        mergeConnections(consumer.sinks || []).forEach(sink => {
             const streamId = sink.streamId;
             if (!visibleStreamIds.has(streamId)) return;
             const edgeId = `${consumer.id}->${streamId}`;
@@ -199,12 +212,15 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
 
             edges.push({
                 id: edgeId, source: consumer.id, target: streamId, type: 'animated',
+                sourceHandle: 'snk-out',
+                targetHandle: 'snk-in',
                 markerEnd: {
                     type: MarkerType.ArrowClosed,
                     color: edgeColor
                 },
                 data: {
                     label: 'sink',
+                    edgeTypeColor: '#f59e0b',
                     simulationState: isCycle ? 'warning' : simState,
                     speed: (simulation?.speed || 1000) / 1000,
                     activeFlowColor,
@@ -217,26 +233,6 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
                 },
             });
         });
-    });
-
-    // Process overlaps
-    const edgeCounts = new Map<string, number>();
-    const pairMap = new Map<string, string>();
-    edges.forEach(e => {
-        const pairId = e.source < e.target ? `${e.source}->${e.target}` : `${e.target}->${e.source}`;
-        edgeCounts.set(pairId, (edgeCounts.get(pairId) || 0) + 1);
-        pairMap.set(e.id, pairId);
-    });
-
-    const edgeIndices = new Map<string, number>();
-    edges.forEach(e => {
-        const pairId = pairMap.get(e.id)!;
-        const count = edgeCounts.get(pairId) || 1;
-        if (count > 1) {
-            const index = edgeIndices.get(pairId) || 0;
-            e.data = { ...e.data, overlapCount: count, overlapIndex: index };
-            edgeIndices.set(pairId, index + 1);
-        }
     });
 
     return getLayoutedElements(nodes, edges, layoutDirection, nodePositions);

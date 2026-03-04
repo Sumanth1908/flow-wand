@@ -18,13 +18,19 @@ type ConsumerNodeData = {
     sinkEvents?: string[];
 };
 
-const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>) => {
+const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeData>>) => {
     const theme = useTheme();
     const layoutDirection = useStore(s => s.layoutDirection);
+    const hoveredEdgeId = useStore(s => s.hoveredEdgeId);
     const targetPos = layoutDirection === 'TB' ? Position.Top : Position.Left;
     const sourcePos = layoutDirection === 'TB' ? Position.Bottom : Position.Right;
     const isActive = data.simulationState === 'active';
     const isVisited = data.simulationState === 'visited';
+
+    // Highlight if any hovered edge connects to this node
+    const isEdgeHighlighted = !!hoveredEdgeId?.includes(id);
+    // If the edge starts with this consumer's id, it's a sink (amber); otherwise source (indigo)
+    const highlightColor = hoveredEdgeId?.startsWith(id) ? '#f59e0b' : '#6366f1';
 
     const nodeColor = data.activeFlowColor || theme.palette.secondary.main;
     const consumerType = data.type || 'default';
@@ -62,7 +68,12 @@ const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>
             transition={isActive ? { duration: 1, repeat: Infinity } : {}}
             style={{ position: 'relative' }}
         >
-            <Handle type="target" position={targetPos} style={{ width: 10, height: 10, background: theme.palette.text.secondary, border: `2px solid ${theme.palette.background.paper}`, zIndex: 10 }} />
+            {/* Indigo: LEFT side — receives data forward (stream → consumer) */}
+            <Handle id="src-in" type="target" position={targetPos}
+                style={{ width: 10, height: 10, background: '#6366f1', border: `2px solid ${theme.palette.background.paper}`, zIndex: 10 }} />
+            {/* Amber: RIGHT side — sends feedback back (consumer → stream) */}
+            <Handle id="snk-out" type="source" position={sourcePos}
+                style={{ width: 10, height: 10, background: '#f59e0b', border: `2px solid ${theme.palette.background.paper}`, zIndex: 10 }} />
 
             <Paper
                 elevation={selected ? 8 : 2}
@@ -73,12 +84,20 @@ const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>
                     border: consumerType === 'database' ? 0 : 2,
                     borderBottomWidth: consumerType === 'database' ? 6 : 2,
                     borderTopWidth: consumerType === 'database' ? 6 : 2,
-                    borderColor: selected ? nodeColor : (isVisited ? `color-mix(in srgb, ${nodeColor} 40%, ${theme.palette.divider})` : 'divider'),
+                    borderColor: selected
+                        ? nodeColor
+                        : isEdgeHighlighted
+                            ? highlightColor
+                            : (isVisited ? `color-mix(in srgb, ${nodeColor} 40%, ${theme.palette.divider})` : 'divider'),
                     borderStyle: 'solid',
                     overflow: 'hidden',
-                    transition: 'all 0.2s ease',
+                    transition: 'all 0.15s ease',
                     position: 'relative',
-                    boxShadow: selected ? `0 0 20px color-mix(in srgb, ${nodeColor} 20%, transparent)` : theme.shadows[2],
+                    boxShadow: isEdgeHighlighted
+                        ? `0 0 0 1px ${highlightColor}66, 0 0 8px ${highlightColor}55`
+                        : selected
+                            ? `0 0 20px color-mix(in srgb, ${nodeColor} 20%, transparent)`
+                            : theme.shadows[2],
                     '&:hover': {
                         borderColor: nodeColor,
                         boxShadow: `0 8px 24px rgba(0,0,0,0.3)`
@@ -146,7 +165,7 @@ const ConsumerNode = memo(({ data, selected }: NodeProps<Node<ConsumerNodeData>>
                 )}
             </Paper>
 
-            <Handle type="source" position={sourcePos} style={{ width: 10, height: 10, background: theme.palette.text.secondary, border: `2px solid ${theme.palette.background.paper}`, zIndex: 10 }} />
+
 
             {/* Simulation Pulse Effect */}
             {isActive && (

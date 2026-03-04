@@ -1,7 +1,7 @@
 /**
  * components/canvas/FlowCanvas.tsx
  */
-import React, { useMemo, useEffect, useState, useRef } from 'react';
+import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
 import {
     ReactFlow, Controls, MiniMap, Background,
     BackgroundVariant, useNodesState, useEdgesState, Panel,
@@ -42,6 +42,7 @@ const FlowCanvasInner: React.FC = () => {
     const updateNodePositions = useStore(s => s.updateNodePositions);
     const activeProjectId = useStore(s => s.activeProjectId);
     const edgeRoutings = useStore(s => s.edgeRoutings);
+    const hoveredEdgeId = useStore(s => s.hoveredEdgeId);
 
     const { nodes: initialNodes, edges: initialEdges } = useMemo(
         () => buildGraph({ streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection, nodePositions, edgeRoutings }),
@@ -61,6 +62,11 @@ const FlowCanvasInner: React.FC = () => {
     const fitViewOptions: FitViewOptions = { padding: 0.3, maxZoom: 1.5 };
     const proOptions: ProOptions = { hideAttribution: true };
     const canvasRef = useRef<HTMLDivElement>(null);
+
+    // Uplift hovered edge to front by bumping its zIndex
+    useEffect(() => {
+        setEdges(eds => eds.map(e => ({ ...e, zIndex: e.id === hoveredEdgeId ? 1000 : 0 })));
+    }, [hoveredEdgeId, setEdges]);
 
     // Sync nodes/edges when props change
     useEffect(() => {

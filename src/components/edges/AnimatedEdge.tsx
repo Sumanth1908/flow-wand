@@ -5,6 +5,7 @@ import useStore from '../../store/useStore';
 type AnimatedEdgeData = {
     simulationState?: 'active' | 'visited' | 'idle' | 'warning' | null;
     activeFlowColor?: string;
+    edgeTypeColor?: string;
     speed?: number;
     label?: string;
     eventNames?: string[];
@@ -110,6 +111,8 @@ const MovingDots = React.memo(({ edgePath, flowColor, speed, shape }: { edgePath
 
 const AnimatedEdge: React.FC<EdgeProps> = ({
     id,
+    source,
+    target,
     sourceX,
     sourceY,
     targetX,
@@ -125,10 +128,14 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
     const edgePathStyle = useStore(s => s.edgePathStyle);
     const themeColorMode = useStore(s => s.theme);
     const updateEdgeRouting = useStore(s => s.updateEdgeRouting);
+    const hoveredEdgeId = useStore(s => s.hoveredEdgeId);
+    const setHoveredEdge = useStore(s => s.setHoveredEdge);
     const { screenToFlowPosition } = useReactFlow();
 
-    const [isHovered, setIsHovered] = useState(false);
-    const [isDraggingNode, setIsDraggingNode] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+
+    // Hovered if: globally flagged OR mid-drag (mouse may have left the hit area)
+    const isHovered = hoveredEdgeId === id || isDragging;
 
     const pathParams = {
         sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition
@@ -149,13 +156,7 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
     } else if (edgePathStyle === 'step') {
         [edgePath, labelX, labelY] = getSmoothStepPath({ ...pathParams, borderRadius: 16 });
     } else {
-        let curvature = 0.25;
-        if (anyEdgeData?.overlapCount && anyEdgeData.overlapCount > 1) {
-            const index = anyEdgeData.overlapIndex || 0;
-            const offset = Math.floor((index + 1) / 2) * 0.3;
-            curvature = index === 0 ? 0.25 : index % 2 === 1 ? 0.25 + offset : 0.25 - offset;
-        }
-        [edgePath, labelX, labelY] = getBezierPath({ ...pathParams, curvature });
+        [edgePath, labelX, labelY] = getBezierPath({ ...pathParams, curvature: 0.25 });
     }
 
     const edgeData = data as AnimatedEdgeData | undefined;
@@ -164,12 +165,31 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
     const isWarning = edgeData?.simulationState === 'warning';
 
     // Default flow color, overridden by warning cycle
-    const flowColor = isWarning ? '#ef4444' : (edgeData?.activeFlowColor || '#6366f1');
-    const baseColor = themeColorMode === 'dark' ? '#94a3b8' : '#64748b'; // better visibility than #b4c4d4
+    const flowColor = isWarning ? '#ef4444' : (edgeData?.activeFlowColor || edgeData?.edgeTypeColor || '#6366f1');
+    const baseColor = edgeData?.edgeTypeColor
+        ? `color-mix(in srgb, ${edgeData.edgeTypeColor} 55%, ${themeColorMode === 'dark' ? '#475569' : '#94a3b8'})`
+        : (themeColorMode === 'dark' ? '#94a3b8' : '#64748b');
     const hasEvents = edgeData?.eventNames && edgeData.eventNames.length > 0;
 
     const dashArray = edgeStyleMode === 'dashed' ? '8, 8' : edgeStyleMode === 'dotted' ? '3, 4' : 'none';
-    const isEdgeHovered = isHovered || isDraggingNode;
+    const isEdgeHovered = isHovered;
+
+    // Hover stroke: bright type color + glow; active: flow color + glow; idle: muted type color
+    const hoverStrokeColor = edgeData?.edgeTypeColor || '#6366f1';
+    const strokeColor = isWarning
+        ? '#ef4444'
+        : isActive || isVisited
+            ? flowColor
+            : isEdgeHovered
+                ? hoverStrokeColor
+                : (edgeData?.activeFlowColor || baseColor);
+    const strokeWidth = isEdgeHovered ? 4 : 2.5;
+    // Subtle single glow on hover; stronger during simulation
+    const edgeFilter = isActive || isWarning
+        ? `drop-shadow(0 0 4px ${flowColor})`
+        : isEdgeHovered
+            ? `drop-shadow(0 0 6px ${hoverStrokeColor}88)`
+            : 'none';
 
     return (
         <>
@@ -178,76 +198,71 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
                 markerEnd={markerEnd}
                 style={{
                     ...style,
-                    stroke: isActive || isVisited || isWarning ? flowColor : (isEdgeHovered ? '#cbd5e1' : (edgeData?.activeFlowColor || baseColor)),
-                    strokeWidth: isActive || isVisited || isWarning ? 3 : (isEdgeHovered ? 4 : 3),
+                    stroke: strokeColor,
+                    strokeWidth,
                     strokeDasharray: dashArray,
                     opacity: (isVisited || isWarning) && !isActive ? 0.6 : 1,
-                    filter: isActive || isWarning ? `drop-shadow(0 0 6px ${flowColor})` : 'none',
-                    transition: 'stroke 0.3s, stroke-width 0.3s, filter 0.3s, opacity 0.3s',
+                    filter: edgeFilter,
+                    transition: 'stroke 0.2s, stroke-width 0.2s, filter 0.2s, opacity 0.3s',
                 }}
             />
 
-            {/* Group for hover interactions */}
+            {/* Hit area + drag handle — all in one <g> so hover persists over the circle */}
             <g
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
+                onMouseEnter={() => setHoveredEdge(id)}
+                onMouseLeave={() => { if (!isDragging) setHoveredEdge(null); }}
             >
-                {/* Invisible wider edge for easier hovering */}
+                {/* Invisible wider stroke for easy hover targeting */}
                 <path
                     d={edgePath}
                     fill="none"
                     stroke="transparent"
-                    strokeWidth={20}
+                    strokeWidth={24}
                     style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
                 />
+
+                {/* Drag handle — inside the <g> so mouseLeave doesn't fire when you hover it */}
+                {isHovered && (
+                    <circle
+                        cx={routingPoint ? routingPoint.cx : labelX}
+                        cy={routingPoint ? routingPoint.cy : labelY}
+                        r={9}
+                        fill={hoverStrokeColor}
+                        stroke="#ffffff"
+                        strokeWidth={3}
+                        style={{ cursor: isDragging ? 'grabbing' : 'grab', pointerEvents: 'all' }}
+                        onPointerDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setIsDragging(true);
+                            document.body.style.cursor = 'grabbing';
+
+                            const handlePointerMove = (evt: PointerEvent) => {
+                                const fp = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
+                                updateEdgeRouting(id, { cx: fp.x, cy: fp.y });
+                            };
+                            const handlePointerUp = () => {
+                                window.removeEventListener('pointermove', handlePointerMove);
+                                window.removeEventListener('pointerup', handlePointerUp);
+                                setIsDragging(false);
+                                document.body.style.cursor = '';
+                            };
+                            window.addEventListener('pointermove', handlePointerMove);
+                            window.addEventListener('pointerup', handlePointerUp);
+                        }}
+                        onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            updateEdgeRouting(id, null);
+                        }}
+                    />
+                )}
             </g>
-
-            {/* Edge Control Handle */}
-            {isEdgeHovered && (
-                <circle
-                    cx={routingPoint ? routingPoint.cx : labelX}
-                    cy={routingPoint ? routingPoint.cy : labelY}
-                    r={8}
-                    fill={flowColor}
-                    stroke="#ffffff"
-                    strokeWidth={3}
-                    style={{ cursor: 'grab', pointerEvents: 'all' }}
-                    onPointerDown={(e) => {
-                        e.stopPropagation();
-                        // Call preventDefault specifically for edge grab events to not interact with panning
-                        e.preventDefault();
-                        setIsDraggingNode(true);
-
-                        const documentBody = document.body;
-                        documentBody.style.cursor = 'grabbing';
-
-                        const handlePointerMove = (evt: PointerEvent) => {
-                            const fp = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
-                            updateEdgeRouting(id, { cx: fp.x, cy: fp.y });
-                        };
-
-                        const handlePointerUp = () => {
-                            window.removeEventListener('pointermove', handlePointerMove);
-                            window.removeEventListener('pointerup', handlePointerUp);
-                            setIsDraggingNode(false);
-                            documentBody.style.cursor = '';
-                        };
-
-                        window.addEventListener('pointermove', handlePointerMove);
-                        window.addEventListener('pointerup', handlePointerUp);
-                    }}
-                    onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        updateEdgeRouting(id, null);
-                    }}
-                />
-            )}
 
             {(isActive || isWarning) && (
                 <MovingDots edgePath={edgePath} flowColor={flowColor} speed={edgeData?.speed || 1} shape={edgeShape} />
             )}
 
-            {isEdgeHovered && (
+            {isHovered && (
                 <EdgeLabelRenderer>
                     <div
                         style={{
@@ -256,29 +271,31 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
                             fontSize: hasEvents ? 9 : 10,
                             fontWeight: 700,
                             color: '#ffffff',
-                            background: isActive ? flowColor : 'rgba(15, 23, 42, 0.95)',
-                            padding: hasEvents ? '4px 10px' : '3px 8px',
+                            background: isActive ? flowColor : `color-mix(in srgb, ${hoverStrokeColor} 20%, rgba(15,23,42,0.97))`,
+                            padding: hasEvents ? '5px 10px' : '4px 10px',
                             borderRadius: '6px',
-                            border: `1px solid ${isActive ? flowColor : 'rgba(148, 163, 184, 0.3)'}`,
+                            border: `1px solid ${hoverStrokeColor}`,
                             pointerEvents: 'none',
                             fontFamily: "'Inter', sans-serif",
                             zIndex: 1000,
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                            boxShadow: `0 4px 16px rgba(0,0,0,0.5), 0 0 8px ${hoverStrokeColor}44`,
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '4px',
                             minWidth: '60px',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            // Push tooltip above the drag handle
+                            marginTop: '-36px',
                         }}
                     >
                         {hasEvents ? (
                             <>
                                 <div style={{ fontSize: '8px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    {edgeData?.label === 'source' ? 'Consumed' : 'Produced'}
+                                    {edgeData?.label === 'source' ? '▶ Consumed' : '◀ Produced'}
                                 </div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
                                     {edgeData?.eventNames?.map(name => (
-                                        <span key={name} style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: '3px' }}>
+                                        <span key={name} style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 5px', borderRadius: '3px' }}>
                                             {name}
                                         </span>
                                     ))}

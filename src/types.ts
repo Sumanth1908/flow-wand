@@ -125,6 +125,7 @@ export interface StoreState {
     edgePathStyle: EdgePathStyle;
     nodePositions: Record<string, { x: number, y: number }>;
     edgeRoutings: Record<string, { cx: number, cy: number }>;
+    hoveredEdgeId: string | null;
 
     init: () => void;
     toggleTheme: () => void;
@@ -135,6 +136,7 @@ export interface StoreState {
     saveProject: () => void;
     updateNodePositions: (positions: Record<string, { x: number, y: number }>) => void;
     updateEdgeRouting: (edgeId: string, point: { cx: number, cy: number } | null) => void;
+    setHoveredEdge: (id: string | null) => void;
     resetLayout: () => void;
     exportProject: () => void;
     importProject: (file: File) => Promise<Project>;

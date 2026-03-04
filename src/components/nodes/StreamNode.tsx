@@ -14,13 +14,21 @@ type StreamNodeData = {
     activeFlowColor?: string;
 };
 
-const StreamNode = memo(({ data, selected }: NodeProps<Node<StreamNodeData>>) => {
+const StreamNode = memo(({ id, data, selected }: NodeProps<Node<StreamNodeData>>) => {
     const theme = useTheme();
     const layoutDirection = useStore(s => s.layoutDirection);
+    const hoveredEdgeId = useStore(s => s.hoveredEdgeId);
     const targetPos = layoutDirection === 'TB' ? Position.Top : Position.Left;
     const sourcePos = layoutDirection === 'TB' ? Position.Bottom : Position.Right;
     const isActive = data.simulationState === 'active';
     const isVisited = data.simulationState === 'visited';
+
+    // Highlight if any hovered edge connects to this node
+    const isEdgeHighlighted = !!hoveredEdgeId?.includes(id);
+    // Derive which edge type is hovering to pick the glow color
+    const highlightColor = hoveredEdgeId?.startsWith(id)
+        ? '#f59e0b'  // sink edge leaving this stream back from consumer — amber
+        : '#6366f1'; // source edge coming out — indigo
 
     const nodeColor = data.activeFlowColor || theme.palette.primary.main;
 
@@ -36,7 +44,12 @@ const StreamNode = memo(({ data, selected }: NodeProps<Node<StreamNodeData>>) =>
             transition={isActive ? { duration: 1, repeat: Infinity } : {}}
             style={{ position: 'relative' }}
         >
-            <Handle type="target" position={targetPos} style={{ width: 10, height: 10, background: theme.palette.text.secondary, border: `2px solid ${theme.palette.background.paper}`, zIndex: 10 }} />
+            {/* Amber: LEFT side — receives feedback (consumer → stream) */}
+            <Handle id="snk-in" type="target" position={targetPos}
+                style={{ width: 10, height: 10, background: '#f59e0b', border: `2px solid ${theme.palette.background.paper}`, zIndex: 10 }} />
+            {/* Indigo: RIGHT side — sends data forward (stream → consumer) */}
+            <Handle id="src-out" type="source" position={sourcePos}
+                style={{ width: 10, height: 10, background: '#6366f1', border: `2px solid ${theme.palette.background.paper}`, zIndex: 10 }} />
 
             <Paper
                 elevation={selected ? 8 : 2}
@@ -45,11 +58,19 @@ const StreamNode = memo(({ data, selected }: NodeProps<Node<StreamNodeData>>) =>
                     bgcolor: 'background.paper',
                     borderRadius: 3,
                     border: 2,
-                    borderColor: selected ? nodeColor : (isVisited ? `color-mix(in srgb, ${nodeColor} 40%, ${theme.palette.divider})` : 'divider'),
+                    borderColor: selected
+                        ? nodeColor
+                        : isEdgeHighlighted
+                            ? highlightColor
+                            : (isVisited ? `color-mix(in srgb, ${nodeColor} 40%, ${theme.palette.divider})` : 'divider'),
                     overflow: 'hidden',
-                    transition: 'all 0.2s ease',
+                    transition: 'all 0.15s ease',
                     position: 'relative',
-                    boxShadow: selected ? `0 0 20px color-mix(in srgb, ${nodeColor} 20%, transparent)` : theme.shadows[2],
+                    boxShadow: isEdgeHighlighted
+                        ? `0 0 0 1px ${highlightColor}66, 0 0 8px ${highlightColor}55`
+                        : selected
+                            ? `0 0 20px color-mix(in srgb, ${nodeColor} 20%, transparent)`
+                            : theme.shadows[2],
                     '&:hover': {
                         borderColor: nodeColor,
                         boxShadow: `0 8px 24px rgba(0,0,0,0.3)`
@@ -108,7 +129,7 @@ const StreamNode = memo(({ data, selected }: NodeProps<Node<StreamNodeData>>) =>
                 )}
             </Paper>
 
-            <Handle type="source" position={sourcePos} style={{ width: 10, height: 10, background: theme.palette.text.secondary, border: `2px solid ${theme.palette.background.paper}`, zIndex: 10 }} />
+
 
             {/* Simulation Pulse Effect */}
             {isActive && (
