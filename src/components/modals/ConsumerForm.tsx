@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Check, Plus, Trash2, Code2, GitBranch, Settings2, Info } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
-import { Consumer, StreamConnection, RoutingStrategy, RoutingRule } from '../../types';
+import { Consumer, StreamConnection, RoutingStrategy, RoutingRule, EventStream } from '../../types';
 import {
     Stack, TextField, Typography, Box, Chip, Select, MenuItem,
     Slider, Divider, Tabs, Tab, Button, IconButton, Paper, Tooltip
@@ -19,7 +19,9 @@ interface ConsumerFormProps {
 const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
     const editingItem = useStore(s => s.editingItem) as Consumer | null;
     const closeModal = useStore(s => s.closeModal);
-    const streams = useStore(s => s.streams);
+    const allStreams = useStore(s => s.streams);
+    const streams = allStreams.filter((s: EventStream) => !s.isDLQ);
+    const dlqStreams = allStreams.filter((s: EventStream) => s.isDLQ);
     const events = useStore(s => s.events);
     const addConsumer = useStore(s => s.addConsumer);
     const updateConsumer = useStore(s => s.updateConsumer);
@@ -41,6 +43,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
     const [transformScript, setTransformScript] = useState(editingItem?.transformScript || '// Modify payload here\n// payload.status = "processed";\n// return payload;');
     const [routingRules, setRoutingRules] = useState<RoutingRule[]>(editingItem?.routingRules || []);
     const [visibleRuleScripts, setVisibleRuleScripts] = useState<Record<string, boolean>>({});
+    const [dlqSinkStreamId, setDlqSinkStreamId] = useState<string | undefined>(editingItem?.dlqSinkStreamId);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -55,7 +58,8 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
             routingStrategy,
             failureRate,
             transformScript,
-            routingRules
+            routingRules,
+            dlqSinkStreamId: dlqSinkStreamId || undefined,
         };
 
         if (editingItem) {
@@ -70,7 +74,8 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                 payload.failureRate,
                 payload.transformScript,
                 payload.routingRules,
-                payload.type
+                payload.type,
+                payload.dlqSinkStreamId
             );
         }
         closeModal();
@@ -222,8 +227,61 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                 </Stack>
                             </Box>
                         </Stack>
+
+                        {/* DLQ Sink Row */}
+                        <Box
+                            sx={{
+                                p: 1.5,
+                                borderRadius: 2,
+                                border: 1,
+                                borderColor: dlqSinkStreamId ? 'error.main' : 'divider',
+                                bgcolor: dlqSinkStreamId ? 'rgba(239,68,68,0.04)' : 'transparent',
+                                transition: 'all 0.2s ease',
+                            }}
+                        >
+                            <Stack direction="row" alignItems="center" spacing={2}>
+                                <Box sx={{ flexShrink: 0 }}>
+                                    <Typography variant="caption" fontWeight="900" sx={{ display: 'block', color: 'error.main', textTransform: 'uppercase', mb: 0.3 }}>
+                                        ☠&nbsp; DLQ / Failure Sink
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                                        Route failed messages here
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ flex: 1 }}>
+                                    {dlqStreams.length === 0 ? (
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                            No DLQ streams — create one from the Streams panel.
+                                        </Typography>
+                                    ) : (
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                            {dlqStreams.map(s => {
+                                                const active = dlqSinkStreamId === s.id;
+                                                return (
+                                                    <Chip
+                                                        key={s.id}
+                                                        label={`☠ ${s.name}`}
+                                                        size="small"
+                                                        variant={active ? 'filled' : 'outlined'}
+                                                        onClick={() => setDlqSinkStreamId(active ? undefined : s.id)}
+                                                        sx={{
+                                                            borderColor: 'error.main',
+                                                            color: active ? 'white' : 'error.main',
+                                                            bgcolor: active ? 'error.main' : 'transparent',
+                                                            fontWeight: 700,
+                                                            '&:hover': { bgcolor: active ? 'error.dark' : 'rgba(239,68,68,0.1)' },
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Stack>
+                        </Box>
                     </Stack>
                 )}
+
 
 
                 {tab === 1 && (

@@ -4,7 +4,7 @@ import useStore from '../store/useStore';
 import { EventStream, EventType, Consumer, DataFlow } from '../types';
 import { APP_CONFIG } from '../lib/config';
 import {
-    BookOpen, Zap, GitBranch, Plus, Trash, Pencil, Play, ChevronDown, Search, Sun, Moon, Download, Upload, FolderOpen, Save, Radio, PanelLeftClose, PanelLeftOpen, Sparkles
+    BookOpen, Zap, GitBranch, Plus, Trash, Pencil, Play, ChevronDown, Search, Sun, Moon, Download, Upload, FolderOpen, Save, Radio, PanelLeftClose, PanelLeftOpen, Sparkles, Skull
 } from 'lucide-react';
 
 import {
@@ -88,9 +88,13 @@ const Sidebar: React.FC = () => {
     const activeProject = projects.find((p) => p.id === activeProjectId);
 
     const filteredStreams = streams.filter((t) => t.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const normalStreams = filteredStreams.filter(t => !t.isDLQ);
+    const dlqStreams = filteredStreams.filter(t => t.isDLQ);
     const filteredConsumers = consumers.filter((j) => j.name.toLowerCase().includes(searchQuery.toLowerCase()));
     const filteredFlows = flows.filter((f) => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
     const filteredEvents = (events || []).filter((e) => e.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const [dlqSectionOpen, setDlqSectionOpen] = React.useState(false);
 
     const handleProjectMenuClick = (event: React.MouseEvent<HTMLButtonElement>) => {
         setAnchorEl(event.currentTarget);
@@ -283,7 +287,9 @@ const Sidebar: React.FC = () => {
                                                 <Plus size={14} />
                                             </IconButton>
                                         </ListSubheader>
-                                        {filteredStreams.map((s) => (
+
+                                        {/* Normal Streams */}
+                                        {normalStreams.map((s) => (
                                             <ListItem key={s.id} disablePadding sx={{ mb: 1 }}>
                                                 <Paper
                                                     elevation={0}
@@ -313,6 +319,69 @@ const Sidebar: React.FC = () => {
                                                 </Paper>
                                             </ListItem>
                                         ))}
+
+                                        {/* DLQ Sub-section */}
+                                        {dlqStreams.length > 0 && (
+                                            <>
+                                                <Box
+                                                    onClick={() => setDlqSectionOpen(o => !o)}
+                                                    sx={{
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                        px: 1, py: 1, mb: 1, mt: 1,
+                                                        borderRadius: 1.5,
+                                                        cursor: 'pointer',
+                                                        userSelect: 'none',
+                                                        bgcolor: 'rgba(239,68,68,0.06)',
+                                                        border: '1px solid rgba(239,68,68,0.18)',
+                                                        transition: 'all 0.15s',
+                                                        '&:hover': { bgcolor: 'rgba(239,68,68,0.10)' },
+                                                    }}
+                                                >
+                                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                                        <Skull size={12} color="#ef4444" />
+                                                        <Typography variant="caption" fontWeight="900" sx={{ fontSize: '0.6rem', letterSpacing: 1.5, color: 'error.main' }}>
+                                                            DEAD LETTER QUEUES
+                                                        </Typography>
+                                                        <Box sx={{ px: 0.6, py: 0.1, borderRadius: 0.8, fontSize: 9, fontWeight: 900, bgcolor: 'error.main', color: 'white' }}>
+                                                            {dlqStreams.length}
+                                                        </Box>
+                                                    </Stack>
+                                                    <ChevronDown size={12} color="#ef4444"
+                                                        style={{ transform: dlqSectionOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                                                    />
+                                                </Box>
+
+                                                {dlqSectionOpen && dlqStreams.map((s) => (
+                                                    <ListItem key={s.id} disablePadding sx={{ mb: 1 }}>
+                                                        <Paper
+                                                            elevation={0}
+                                                            sx={{
+                                                                width: '100%', p: 1.2, borderRadius: 2, border: 1,
+                                                                borderColor: 'rgba(239,68,68,0.25)',
+                                                                bgcolor: 'background.default',
+                                                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                '&:hover': { borderColor: 'error.main', bgcolor: 'rgba(239,68,68,0.04)', transform: 'translateY(-1px)' },
+                                                                '&:hover .actions': { opacity: 1, transform: 'translateX(0)' }
+                                                            }}
+                                                        >
+                                                            <Stack direction="row" alignItems="center" spacing={1}>
+                                                                <Box sx={{ p: 0.75, borderRadius: 1.5, bgcolor: 'rgba(239,68,68,0.1)', color: 'error.main', display: 'flex' }}>
+                                                                    <Skull size={14} />
+                                                                </Box>
+                                                                <ListItemText
+                                                                    primary={<Typography variant="body2" fontWeight="700" noWrap fontSize={13} color="error.main">{s.name}</Typography>}
+                                                                    secondary={<Typography variant="caption" noWrap sx={{ display: 'block', opacity: 0.6, fontSize: 11 }}>{s.description || s.type}</Typography>}
+                                                                />
+                                                                <Stack direction="row" spacing={0.5} className="actions" sx={{ opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(5px)' }, transition: '0.2s', flexShrink: 0 }}>
+                                                                    <IconButton size="small" onClick={() => openModal('stream', s)} sx={{ width: 24, height: 24 }}><Pencil size={12} /></IconButton>
+                                                                    <IconButton size="small" color="error" onClick={() => openModal('confirm', { title: 'Delete DLQ', message: `Delete DLQ stream "${s.name}"?`, onConfirm: () => deleteStream(s.id) })} sx={{ width: 24, height: 24 }}><Trash size={12} /></IconButton>
+                                                                </Stack>
+                                                            </Stack>
+                                                        </Paper>
+                                                    </ListItem>
+                                                ))}
+                                            </>
+                                        )}
                                     </List>
                                 )}
 

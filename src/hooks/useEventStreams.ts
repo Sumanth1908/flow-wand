@@ -14,7 +14,7 @@ export const buildEventStreamActions = (
     const isUnique = (name: string, excludeId: string | null = null) =>
         !getStreams().some(t => t.name.toLowerCase() === name.toLowerCase() && t.id !== excludeId);
 
-    const addStream = (name: string, type: StreamType = 'kafka', partitions = 1, description = '') => {
+    const addStream = (name: string, type: StreamType = 'kafka', partitions = 1, description = '', isDLQ = false) => {
         if (!projectId) return false;
         if (!isUnique(name)) {
             showToast(`Event Stream "${name}" already exists`);
@@ -26,6 +26,7 @@ export const buildEventStreamActions = (
             type,
             partitions,
             description,
+            ...(isDLQ ? { isDLQ: true } : {}),
         };
         storage.createStream(projectId, stream);
         setStreams([...getStreams(), stream]);

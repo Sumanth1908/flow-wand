@@ -21,7 +21,8 @@ export const buildConsumerActions = (
         failureRate = 0.05,
         transformScript = '',
         routingRules: Consumer['routingRules'] = [],
-        type: Consumer['type'] = 'default'
+        type: Consumer['type'] = 'default',
+        dlqSinkStreamId?: string
     ) => {
         if (!projectId) return false;
         const consumer: Consumer = {
@@ -34,7 +35,8 @@ export const buildConsumerActions = (
             routingStrategy,
             failureRate,
             transformScript,
-            routingRules
+            routingRules,
+            ...(dlqSinkStreamId ? { dlqSinkStreamId } : {}),
         };
         storage.createConsumer(projectId, consumer);
         setConsumers([...getConsumers(), consumer]);

@@ -92,7 +92,7 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
         }
     }
 
-    // Collect visible stream IDs
+    // Collect visible stream IDs (excluding DLQ streams from the canvas)
     const visibleStreamIds = new Set<string>();
     visibleConsumers.forEach(consumer => {
         (consumer.sources || []).forEach(s => visibleStreamIds.add(s.streamId));
@@ -100,7 +100,9 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
     });
     if (!activeFlowId) streams.forEach(t => visibleStreamIds.add(t.id));
 
-    const visibleStreams = streams.filter(t => visibleStreamIds.has(t.id));
+    // Filter out DLQ streams — they are hidden from the canvas entirely
+    const dlqStreamIds = new Set(streams.filter(s => s.isDLQ).map(s => s.id));
+    const visibleStreams = streams.filter(t => visibleStreamIds.has(t.id) && !dlqStreamIds.has(t.id));
 
     // Create Stream nodes
     visibleStreams.forEach(t => nodes.push({
@@ -138,6 +140,9 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
                 const ev = events.find(e => e.id === eid);
                 return ev ? ev.name : null;
             }).filter(Boolean),
+            dlqSinkStreamName: j.dlqSinkStreamId
+                ? (streams.find(s => s.id === j.dlqSinkStreamId)?.name ?? undefined)
+                : undefined,
         },
     }));
 
@@ -195,7 +200,8 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
         });
         mergeConnections(consumer.sinks || []).forEach(sink => {
             const streamId = sink.streamId;
-            if (!visibleStreamIds.has(streamId)) return;
+            // Skip DLQ streams — they are not rendered as canvas edges
+            if (!visibleStreamIds.has(streamId) || dlqStreamIds.has(streamId)) return;
             const edgeId = `${consumer.id}->${streamId}`;
             const isSimActive = simulation?.activeEdgeIds?.includes(edgeId);
             const isCurrent = simulation?.currentEdgeId === edgeId;
