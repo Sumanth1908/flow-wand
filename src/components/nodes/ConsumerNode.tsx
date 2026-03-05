@@ -16,6 +16,7 @@ type ConsumerNodeData = {
     activeFlowColor?: string;
     sourceEvents?: string[];
     sinkEvents?: string[];
+    dlqSinkStreamName?: string;
 };
 
 const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeData>>) => {
@@ -140,6 +141,40 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                         <Typography variant="caption" noWrap sx={{ display: 'block', color: 'text.secondary', mt: 0.5, fontSize: 11 }}>
                             {data.description}
                         </Typography>
+                    )}
+                    {/* DLQ Badge */}
+                    {data.dlqSinkStreamName && (
+                        <Box
+                            sx={{
+                                mt: 1,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                px: 0.9,
+                                py: 0.3,
+                                borderRadius: 1.5,
+                                bgcolor: 'rgba(239, 68, 68, 0.12)',
+                                border: '1px solid',
+                                borderColor: 'rgba(239, 68, 68, 0.35)',
+                                maxWidth: '100%',
+                                overflow: 'hidden',
+                            }}
+                        >
+                            <Typography
+                                sx={{
+                                    fontSize: 9,
+                                    fontWeight: 900,
+                                    color: '#ef4444',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.4,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                }}
+                            >
+                                ☠ DLQ → {data.dlqSinkStreamName}
+                            </Typography>
+                        </Box>
                     )}
                 </Box>
 

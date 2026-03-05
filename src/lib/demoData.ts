@@ -103,7 +103,7 @@ const streams: EventStream[] = [
     { id: 'st-fraud', name: 'fraud.signals.v1', type: 'kafka', description: 'High-risk entity flags for review', partitions: 4 },
     { id: 'st-notifications', name: 'notifications.queue', type: 'sns', description: 'Fan-out notification delivery bus', partitions: 1 },
     { id: 'st-analytics', name: 'analytics.ingest.v3', type: 'kafka', description: 'Enriched event stream for Clickhouse/BigQuery', partitions: 64 },
-    { id: 'st-dlq', name: 'platform.dlq', type: 'kafka', description: 'Dead-letter queue for all failed consumers', partitions: 4 },
+    { id: 'st-dlq', name: 'platform.dlq', type: 'kafka', description: 'Dead-letter queue for all failed consumers', partitions: 4, isDLQ: true },
     { id: 'st-recommendations', name: 'recommendations.feed', type: 'kafka', description: 'Personalized product recommendation triggers', partitions: 16 },
     { id: 'st-audit', name: 'audit.log.v1', type: 'kafka', description: 'Immutable audit trail for compliance', partitions: 8 },
     { id: 'st-search-index', name: 'search.index.updates', type: 'kafka', description: 'Signals for Elasticsearch re-indexing', partitions: 8 },
@@ -178,9 +178,9 @@ const consumers: Consumer[] = [
         sources: [{ streamId: 'st-payments', eventIds: ['evt-payment-failed'] }],
         sinks: [
             { streamId: 'st-payments', eventIds: ['evt-payment-initiated'] },
-            { streamId: 'st-dlq', eventIds: ['evt-payment-failed'] },
         ],
         routingStrategy: 'conditional',
+        dlqSinkStreamId: 'st-dlq',
     },
     {
         id: 'cons-payment-success-handler',
@@ -222,10 +222,10 @@ const consumers: Consumer[] = [
         sources: [{ streamId: 'st-orders', eventIds: ['evt-order-confirmed'] }],
         sinks: [
             { streamId: 'st-inventory', eventIds: ['evt-inventory-reserved'] },
-            { streamId: 'st-dlq', eventIds: ['evt-order-confirmed'] },
         ],
         routingStrategy: 'failover',
         failureRate: 0.01,
+        dlqSinkStreamId: 'st-dlq',
     },
     {
         id: 'cons-inventory-sync',
@@ -363,10 +363,10 @@ const consumers: Consumer[] = [
         sources: [{ streamId: 'st-notifications', eventIds: ['evt-notification'] }],
         sinks: [
             { streamId: 'st-analytics', eventIds: ['evt-analytics'] },
-            { streamId: 'st-dlq', eventIds: ['evt-notification'] },
         ],
         routingStrategy: 'failover',
         failureRate: 0.02,
+        dlqSinkStreamId: 'st-dlq',
     },
     {
         id: 'cons-review-requester',
