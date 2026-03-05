@@ -148,9 +148,15 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
     const routingPoint = globalRoutings[id] || (anyEdgeData?.routing as { cx: number, cy: number } | undefined);
 
     if (routingPoint) {
-        edgePath = `M ${sourceX} ${sourceY} Q ${routingPoint.cx} ${routingPoint.cy} ${targetX} ${targetY}`;
-        labelX = 0.25 * sourceX + 0.5 * routingPoint.cx + 0.25 * targetX;
-        labelY = 0.25 * sourceY + 0.5 * routingPoint.cy + 0.25 * targetY;
+        // routingPoint.cx/cy is the desired midpoint ON the curve at t=0.5.
+        // Quadratic bezier at t=0.5: mid = 0.25*src + 0.5*ctrl + 0.25*tgt
+        // Invert to get control point:  ctrl = 2*mid - 0.5*src - 0.5*tgt
+        const ctrlX = 2 * routingPoint.cx - 0.5 * sourceX - 0.5 * targetX;
+        const ctrlY = 2 * routingPoint.cy - 0.5 * sourceY - 0.5 * targetY;
+        edgePath = `M ${sourceX} ${sourceY} Q ${ctrlX} ${ctrlY} ${targetX} ${targetY}`;
+        // The drag circle sits at the stored midpoint which IS on the visible curve.
+        labelX = routingPoint.cx;
+        labelY = routingPoint.cy;
     } else if (edgePathStyle === 'straight') {
         [edgePath, labelX, labelY] = getStraightPath(pathParams);
     } else if (edgePathStyle === 'step') {
@@ -207,12 +213,11 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
                 }}
             />
 
-            {/* Hit area + drag handle — all in one <g> so hover persists over the circle */}
+            {/* Hit area — invisible wide stroke, only purpose is to catch hover on the edge path */}
             <g
                 onMouseEnter={() => setHoveredEdge(id)}
                 onMouseLeave={() => { if (!isDragging) setHoveredEdge(null); }}
             >
-                {/* Invisible wider stroke for easy hover targeting */}
                 <path
                     d={edgePath}
                     fill="none"
@@ -220,43 +225,73 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
                     strokeWidth={24}
                     style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
                 />
-
-                {/* Drag handle — inside the <g> so mouseLeave doesn't fire when you hover it */}
-                {isHovered && (
-                    <circle
-                        cx={routingPoint ? routingPoint.cx : labelX}
-                        cy={routingPoint ? routingPoint.cy : labelY}
-                        r={9}
-                        fill={hoverStrokeColor}
-                        stroke="#ffffff"
-                        strokeWidth={3}
-                        style={{ cursor: isDragging ? 'grabbing' : 'grab', pointerEvents: 'all' }}
-                        onPointerDown={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            setIsDragging(true);
-                            document.body.style.cursor = 'grabbing';
-
-                            const handlePointerMove = (evt: PointerEvent) => {
-                                const fp = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
-                                updateEdgeRouting(id, { cx: fp.x, cy: fp.y });
-                            };
-                            const handlePointerUp = () => {
-                                window.removeEventListener('pointermove', handlePointerMove);
-                                window.removeEventListener('pointerup', handlePointerUp);
-                                setIsDragging(false);
-                                document.body.style.cursor = '';
-                            };
-                            window.addEventListener('pointermove', handlePointerMove);
-                            window.addEventListener('pointerup', handlePointerUp);
-                        }}
-                        onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            updateEdgeRouting(id, null);
-                        }}
-                    />
-                )}
             </g>
+
+            {/* Drag handle:
+                - No bend yet → show only on hover so the user can initiate a drag
+                - Bend exists  → also show only on hover — the circle is ON the curve so
+                  hovering the edge always brings it back */}
+            {isHovered && (
+                <circle
+                    cx={routingPoint ? routingPoint.cx : labelX}
+                    cy={routingPoint ? routingPoint.cy : labelY}
+                    r={9}
+                    fill={hoverStrokeColor}
+                    stroke="#ffffff"
+                    strokeWidth={3}
+                    style={{ cursor: isDragging ? 'grabbing' : 'grab', pointerEvents: 'all' }}
+                    onMouseEnter={() => setHoveredEdge(id)}
+                    onMouseLeave={() => { if (!isDragging) setHoveredEdge(null); }}
+                    onPointerDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setIsDragging(true);
+                        document.body.style.cursor = 'grabbing';
+
+                        const handlePointerMove = (evt: PointerEvent) => {
+                            const fp = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
+                            updateEdgeRouting(id, { cx: fp.x, cy: fp.y });
+                        };
+                        const handlePointerUp = () => {
+                            window.removeEventListener('pointermove', handlePointerMove);
+                            window.removeEventListener('pointerup', handlePointerUp);
+                            setIsDragging(false);
+                            document.body.style.cursor = '';
+                        };
+                        window.addEventListener('pointermove', handlePointerMove);
+                        window.addEventListener('pointerup', handlePointerUp);
+                    }}
+                    onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        updateEdgeRouting(id, null);
+                    }}
+                />
+            )}
+
+            {/* Reset button — shown on hover whenever a bend exists */}
+            {!!routingPoint && isHovered && (
+                <g
+                    style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                    onMouseEnter={() => setHoveredEdge(id)}
+                    onMouseLeave={() => { if (!isDragging) setHoveredEdge(null); }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        updateEdgeRouting(id, null);
+                    }}
+                    transform={`translate(${routingPoint.cx + 14}, ${routingPoint.cy - 14})`}
+                >
+                    <circle r={8} fill="#1e293b" stroke={hoverStrokeColor} strokeWidth={1.5} />
+                    <text
+                        x={0} y={0}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fontSize={10}
+                        fontWeight="bold"
+                        fill="#ffffff"
+                        style={{ userSelect: 'none' }}
+                    >✕</text>
+                </g>
+            )}
 
             {(isActive || isWarning) && (
                 <MovingDots edgePath={edgePath} flowColor={flowColor} speed={edgeData?.speed || 1} shape={edgeShape} />

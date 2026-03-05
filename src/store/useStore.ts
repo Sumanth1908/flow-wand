@@ -180,12 +180,12 @@ const useStore = create<StoreState>((set, get) => {
         setHoveredEdge: (id) => set({ hoveredEdgeId: id }),
 
         resetLayout: () => {
-            set({ nodePositions: {} });
-            // After reset, we might want to save to persist the clean state
+            set({ nodePositions: {}, edgeRoutings: {} });
             const id = get().activeProjectId;
             if (id) {
                 const data = storage.getProjectData(id);
                 data.nodePositions = {};
+                data.edgeRoutings = {};
                 storage.saveProjectData(id, data);
             }
             showToast('Layout reset to default ✓');
