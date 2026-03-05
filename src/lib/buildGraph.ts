@@ -140,8 +140,8 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
                 const ev = events.find(e => e.id === eid);
                 return ev ? ev.name : null;
             }).filter(Boolean),
-            dlqSinkStreamName: j.dlqSinkStreamId
-                ? (streams.find(s => s.id === j.dlqSinkStreamId)?.name ?? undefined)
+            dlqSinkStreamName: j.dlqSink
+                ? (streams.find(s => s.id === j.dlqSink!.streamId)?.name ?? undefined)
                 : undefined,
         },
     }));

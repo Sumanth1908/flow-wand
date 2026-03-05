@@ -180,7 +180,7 @@ const consumers: Consumer[] = [
             { streamId: 'st-payments', eventIds: ['evt-payment-initiated'] },
         ],
         routingStrategy: 'conditional',
-        dlqSinkStreamId: 'st-dlq',
+        dlqSink: { streamId: 'st-dlq', eventIds: ['evt-payment-failed'] },
     },
     {
         id: 'cons-payment-success-handler',
@@ -225,7 +225,7 @@ const consumers: Consumer[] = [
         ],
         routingStrategy: 'failover',
         failureRate: 0.01,
-        dlqSinkStreamId: 'st-dlq',
+        dlqSink: { streamId: 'st-dlq', eventIds: ['evt-order-confirmed'] },
     },
     {
         id: 'cons-inventory-sync',
@@ -366,7 +366,7 @@ const consumers: Consumer[] = [
         ],
         routingStrategy: 'failover',
         failureRate: 0.02,
-        dlqSinkStreamId: 'st-dlq',
+        dlqSink: { streamId: 'st-dlq', eventIds: ['evt-notification'] },
     },
     {
         id: 'cons-review-requester',

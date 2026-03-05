@@ -33,9 +33,12 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
     const [desc, setDesc] = useState(editingItem?.description || '');
     const [consumerType, setConsumerType] = useState<Consumer['type']>(editingItem?.type || 'default');
 
-    // Connection State
+    // Connection State — strip any DLQ stream IDs from sinks on load (legacy / old-format data)
+    const dlqStreamIds = new Set(dlqStreams.map(s => s.id));
     const [sources, setSources] = useState<StreamConnection[]>(editingItem?.sources || []);
-    const [sinks, setSinks] = useState<StreamConnection[]>(editingItem?.sinks || []);
+    const [sinks, setSinks] = useState<StreamConnection[]>(
+        (editingItem?.sinks || []).filter(c => !dlqStreamIds.has(c.streamId))
+    );
 
     // Logic State
     const [routingStrategy, setRoutingStrategy] = useState<RoutingStrategy>(editingItem?.routingStrategy || 'broadcast');
@@ -43,7 +46,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
     const [transformScript, setTransformScript] = useState(editingItem?.transformScript || '// Modify payload here\n// payload.status = "processed";\n// return payload;');
     const [routingRules, setRoutingRules] = useState<RoutingRule[]>(editingItem?.routingRules || []);
     const [visibleRuleScripts, setVisibleRuleScripts] = useState<Record<string, boolean>>({});
-    const [dlqSinkStreamId, setDlqSinkStreamId] = useState<string | undefined>(editingItem?.dlqSinkStreamId);
+    const [dlqSink, setDlqSink] = useState<StreamConnection | undefined>(editingItem?.dlqSink);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -59,7 +62,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
             failureRate,
             transformScript,
             routingRules,
-            dlqSinkStreamId: dlqSinkStreamId || undefined,
+            dlqSink: dlqSink || undefined,
         };
 
         if (editingItem) {
@@ -75,7 +78,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                 payload.transformScript,
                 payload.routingRules,
                 payload.type,
-                payload.dlqSinkStreamId
+                payload.dlqSink
             );
         }
         closeModal();
@@ -207,23 +210,26 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                     })}
                                 </Box>
                                 <Stack spacing={1}>
-                                    {sinks.map(conn => (
-                                        <Paper key={conn.streamId} variant="outlined" sx={{ p: 1 }}>
-                                            <Typography variant="caption" fontWeight="bold" display="block">{streams.find(s => s.id === conn.streamId)?.name}</Typography>
-                                            <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                {events.map(ev => {
-                                                    const sel = conn.eventIds.includes(ev.id);
-                                                    return (
-                                                        <Chip
-                                                            key={ev.id} label={ev.name} size="small"
-                                                            onClick={() => setSinks(toggleEventOnStream(sinks, conn.streamId, ev.id))}
-                                                            sx={{ height: 18, fontSize: 9, bgcolor: sel ? 'secondary.main' : 'background.paper', color: sel ? 'white' : 'text.secondary' }}
-                                                        />
-                                                    );
-                                                })}
-                                            </Box>
-                                        </Paper>
-                                    ))}
+                                    {sinks
+                                        // Skip any lingering DLQ entries — they have no normal stream record
+                                        .filter(conn => !dlqStreamIds.has(conn.streamId))
+                                        .map(conn => (
+                                            <Paper key={conn.streamId} variant="outlined" sx={{ p: 1 }}>
+                                                <Typography variant="caption" fontWeight="bold" display="block">{streams.find(s => s.id === conn.streamId)?.name}</Typography>
+                                                <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                    {events.map(ev => {
+                                                        const sel = conn.eventIds.includes(ev.id);
+                                                        return (
+                                                            <Chip
+                                                                key={ev.id} label={ev.name} size="small"
+                                                                onClick={() => setSinks(toggleEventOnStream(sinks, conn.streamId, ev.id))}
+                                                                sx={{ height: 18, fontSize: 9, bgcolor: sel ? 'secondary.main' : 'background.paper', color: sel ? 'white' : 'text.secondary' }}
+                                                            />
+                                                        );
+                                                    })}
+                                                </Box>
+                                            </Paper>
+                                        ))}
                                 </Stack>
                             </Box>
                         </Stack>
@@ -234,49 +240,93 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                 p: 1.5,
                                 borderRadius: 2,
                                 border: 1,
-                                borderColor: dlqSinkStreamId ? 'error.main' : 'divider',
-                                bgcolor: dlqSinkStreamId ? 'rgba(239,68,68,0.04)' : 'transparent',
+                                borderColor: dlqSink ? 'error.main' : 'divider',
+                                bgcolor: dlqSink ? 'rgba(239,68,68,0.04)' : 'transparent',
                                 transition: 'all 0.2s ease',
                             }}
                         >
-                            <Stack direction="row" alignItems="center" spacing={2}>
-                                <Box sx={{ flexShrink: 0 }}>
-                                    <Typography variant="caption" fontWeight="900" sx={{ display: 'block', color: 'error.main', textTransform: 'uppercase', mb: 0.3 }}>
-                                        ☠&nbsp; DLQ / Failure Sink
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-                                        Route failed messages here
-                                    </Typography>
-                                </Box>
-                                <Box sx={{ flex: 1 }}>
-                                    {dlqStreams.length === 0 ? (
-                                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                            No DLQ streams — create one from the Streams panel.
+                            <Stack spacing={1.5}>
+                                <Stack direction="row" alignItems="center" spacing={2}>
+                                    <Box sx={{ flexShrink: 0 }}>
+                                        <Typography variant="caption" fontWeight="900" sx={{ display: 'block', color: 'error.main', textTransform: 'uppercase', mb: 0.3 }}>
+                                            ☠&nbsp; DLQ / Failure Sink
                                         </Typography>
-                                    ) : (
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                            {dlqStreams.map(s => {
-                                                const active = dlqSinkStreamId === s.id;
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                                            Route failed messages here
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{ flex: 1 }}>
+                                        {dlqStreams.length === 0 ? (
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                                No DLQ streams — create one from the Streams panel.
+                                            </Typography>
+                                        ) : (
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                                {dlqStreams.map(s => {
+                                                    const active = dlqSink?.streamId === s.id;
+                                                    return (
+                                                        <Chip
+                                                            key={s.id}
+                                                            label={`☠ ${s.name}`}
+                                                            size="small"
+                                                            variant={active ? 'filled' : 'outlined'}
+                                                            onClick={() => setDlqSink(active ? undefined : { streamId: s.id, eventIds: [] })}
+                                                            sx={{
+                                                                borderColor: 'error.main',
+                                                                color: active ? 'white' : 'error.main',
+                                                                bgcolor: active ? 'error.main' : 'transparent',
+                                                                fontWeight: 700,
+                                                                '&:hover': { bgcolor: active ? 'error.dark' : 'rgba(239,68,68,0.1)' },
+                                                            }}
+                                                        />
+                                                    );
+                                                })}
+                                            </Box>
+                                        )}
+                                    </Box>
+                                </Stack>
+
+                                {/* Event mapping — only shown once a DLQ stream is selected */}
+                                {dlqSink && (
+                                    <Box sx={{ pl: 0.5 }}>
+                                        <Typography variant="caption" fontWeight="700" sx={{ display: 'block', color: 'error.main', mb: 0.75, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            Event Types → DLQ
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                            {events.length === 0 ? (
+                                                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>No event types defined yet.</Typography>
+                                            ) : events.map(ev => {
+                                                const sel = dlqSink.eventIds.includes(ev.id);
                                                 return (
                                                     <Chip
-                                                        key={s.id}
-                                                        label={`☠ ${s.name}`}
+                                                        key={ev.id}
+                                                        label={ev.name}
                                                         size="small"
-                                                        variant={active ? 'filled' : 'outlined'}
-                                                        onClick={() => setDlqSinkStreamId(active ? undefined : s.id)}
+                                                        onClick={() => setDlqSink(prev => {
+                                                            if (!prev) return prev;
+                                                            const has = prev.eventIds.includes(ev.id);
+                                                            return {
+                                                                ...prev,
+                                                                eventIds: has
+                                                                    ? prev.eventIds.filter(id => id !== ev.id)
+                                                                    : [...prev.eventIds, ev.id],
+                                                            };
+                                                        })}
                                                         sx={{
-                                                            borderColor: 'error.main',
-                                                            color: active ? 'white' : 'error.main',
-                                                            bgcolor: active ? 'error.main' : 'transparent',
-                                                            fontWeight: 700,
-                                                            '&:hover': { bgcolor: active ? 'error.dark' : 'rgba(239,68,68,0.1)' },
+                                                            height: 20,
+                                                            fontSize: 10,
+                                                            bgcolor: sel ? 'error.main' : 'background.paper',
+                                                            color: sel ? 'white' : 'text.secondary',
+                                                            borderColor: sel ? 'error.main' : 'divider',
+                                                            border: 1,
+                                                            '&:hover': { bgcolor: sel ? 'error.dark' : 'rgba(239,68,68,0.08)' },
                                                         }}
                                                     />
                                                 );
                                             })}
                                         </Box>
-                                    )}
-                                </Box>
+                                    </Box>
+                                )}
                             </Stack>
                         </Box>
                     </Stack>

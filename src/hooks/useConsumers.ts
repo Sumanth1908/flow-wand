@@ -22,7 +22,7 @@ export const buildConsumerActions = (
         transformScript = '',
         routingRules: Consumer['routingRules'] = [],
         type: Consumer['type'] = 'default',
-        dlqSinkStreamId?: string
+        dlqSink?: import('../types').StreamConnection
     ) => {
         if (!projectId) return false;
         const consumer: Consumer = {
@@ -36,7 +36,7 @@ export const buildConsumerActions = (
             failureRate,
             transformScript,
             routingRules,
-            ...(dlqSinkStreamId ? { dlqSinkStreamId } : {}),
+            ...(dlqSink ? { dlqSink } : {}),
         };
         storage.createConsumer(projectId, consumer);
         setConsumers([...getConsumers(), consumer]);

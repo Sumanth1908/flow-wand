@@ -51,7 +51,7 @@ export interface Consumer {
     failureRate?: number;
     transformScript?: string; // JS block e.g. "payload.newField = 1; return payload;"
     routingRules?: RoutingRule[];
-    dlqSinkStreamId?: string;   // ID of the DLQ stream to route failed messages to
+    dlqSink?: StreamConnection;          // Failure-path sink (hidden from canvas)
 }
 
 export interface DataFlow {
@@ -158,7 +158,7 @@ export interface StoreState {
         transformScript?: string,
         routingRules?: Consumer['routingRules'],
         type?: ConsumerType,
-        dlqSinkStreamId?: string
+        dlqSink?: StreamConnection
     ) => boolean;
     updateConsumer: (id: string, patch: Partial<Consumer>) => boolean;
     deleteConsumer: (id: string) => void;
