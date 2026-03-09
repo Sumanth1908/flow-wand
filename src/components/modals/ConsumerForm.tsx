@@ -2,13 +2,13 @@
  * components/modals/ConsumerForm.tsx
  */
 import React, { useState } from 'react';
-import { Check, Plus, Trash2, Code2, GitBranch, Settings2, Info } from 'lucide-react';
+import { Plus, Trash2, Code2, GitBranch, Settings2 } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
 import { Consumer, StreamConnection, RoutingStrategy, RoutingRule, EventStream } from '../../types';
 import {
     Stack, TextField, Typography, Box, Chip, Select, MenuItem,
-    Slider, Divider, Tabs, Tab, Button, IconButton, Paper, Tooltip
+    Slider, Tabs, Tab, Button, IconButton, Paper
 } from '@mui/material';
 import { v4 as uuid } from 'uuid';
 
@@ -404,7 +404,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                             No rules defined. Add one to start routing based on transformed data.
                                         </Typography>
                                     )}
-                                    {routingRules.map((rule, idx) => (
+                                    {routingRules.map((rule) => (
                                         <Stack key={rule.id} spacing={1.5} sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 3, bgcolor: 'background.default', position: 'relative' }}>
                                             {/* Header: Semantic Builder Top Row */}
                                             <Stack direction="row" spacing={1} alignItems="center">

@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { motion } from 'framer-motion';
 import { Zap, Server, Database, Braces } from 'lucide-react';
@@ -13,7 +13,6 @@ type ConsumerNodeData = {
     sourceCount?: number;
     sinkCount?: number;
     simulationState?: 'active' | 'visited' | null;
-    activeFlowColor?: string;
     sourceEvents?: string[];
     sinkEvents?: string[];
     dlqSinkStreamName?: string;
@@ -33,7 +32,7 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
     // If the edge starts with this consumer's id, it's a sink (amber); otherwise source (indigo)
     const highlightColor = hoveredEdgeId?.startsWith(id) ? '#f59e0b' : '#6366f1';
 
-    const nodeColor = data.activeFlowColor || theme.palette.secondary.main;
+    const nodeColor = theme.palette.secondary.main;
     const consumerType = data.type || 'default';
 
     // Different shapes based on type

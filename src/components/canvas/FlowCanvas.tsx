@@ -1,20 +1,20 @@
 /**
  * components/canvas/FlowCanvas.tsx
  */
-import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
 import {
-    ReactFlow, Controls, MiniMap, Background,
+    ReactFlow, MiniMap, Background,
     BackgroundVariant, useNodesState, useEdgesState, Panel,
-    Node, Edge, FitViewOptions, ProOptions, useReactFlow, ReactFlowProvider,
+    Node, Edge, FitViewOptions, ProOptions, useReactFlow,
 } from '@xyflow/react';
-import { Footprints, Square, Settings2, Send, Trash, Camera, ZoomIn, ZoomOut, Maximize, Lock, Unlock, ListTree, RotateCcw, X } from 'lucide-react';
+import { Square, Settings2, Send, Camera, ZoomIn, ZoomOut, Maximize, Lock, Unlock, RotateCcw } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 import StreamNode from '../nodes/StreamNode';
 import ConsumerNode from '../nodes/ConsumerNode';
 import AnimatedEdge from '../edges/AnimatedEdge';
 import useStore from '../../store/useStore';
 import { buildGraph } from '../../lib/buildGraph';
-import { Box, Paper, Stack, IconButton, Button, Typography, Select, MenuItem, Tooltip, Divider, Badge, useTheme } from '@mui/material';
+import { Box, Paper, IconButton, Button, Typography, Tooltip, Divider, Badge, useTheme } from '@mui/material';
 
 const nodeTypes = { stream: StreamNode, consumer: ConsumerNode };
 const edgeTypes = { animated: AnimatedEdge };
@@ -108,7 +108,7 @@ const FlowCanvasInner: React.FC = () => {
         }
     }, [nodes.length, activeProjectId, fitView]);
 
-    const onNodeClick = (event: React.MouseEvent, node: Node) => {
+    const onNodeClick = (_: React.MouseEvent, node: Node) => {
         if (node.type === 'stream') {
             const stream = streams.find(s => s.id === node.id);
             if (stream) openModal('nodeDetails', { type: 'stream', item: stream });
@@ -183,14 +183,14 @@ const FlowCanvasInner: React.FC = () => {
                     <Panel position="top-left">
                         <Box sx={{
                             display: 'flex', alignItems: 'center', gap: 1.5,
-                            px: 2, py: 1, borderRadius: 2, border: 1,
-                            borderColor: `color-mix(in srgb, ${activeFlow.color || '#10b981'} 35%, transparent)`,
-                            bgcolor: `color-mix(in srgb, ${activeFlow.color || '#10b981'} 12%, var(--bg-secondary))`,
-                            color: activeFlow.color || '#10b981',
+                            px: 2, py: 1, borderRadius: 2, border: '1px solid',
+                            borderColor: 'divider',
+                            bgcolor: 'background.paper',
+                            color: 'text.primary',
                             backdropFilter: 'blur(8px)',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                         }}>
-                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: activeFlow.color || '#10b981', boxShadow: `0 0 8px ${activeFlow.color || '#10b981'}88` }} />
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'text.secondary', opacity: 0.5 }} />
                             <Typography variant="body2" fontWeight="bold">Viewing: {activeFlow.name}</Typography>
                         </Box>
                     </Panel>

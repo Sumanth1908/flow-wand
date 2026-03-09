@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, Zap, ArrowRight, Clock, ChevronDown, ChevronRight, TriangleAlert } from 'lucide-react';
-import { Box, Stack, Typography, Paper, IconButton, Collapse, Divider } from '@mui/material';
+import { Box, Stack, Typography, Collapse } from '@mui/material';
 
 const EntryIcon = ({ type }: { type: string }) => {
     if (type === 'stream') return <BookOpen size={14} />;

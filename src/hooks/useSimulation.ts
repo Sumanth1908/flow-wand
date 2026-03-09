@@ -246,7 +246,7 @@ export const buildSimulationActions = (
     const startSimulation = (startStreamId: string, payloadOrPayloads: any | any[] = null) => {
         const { streams, consumers, events, simulation } = get();
         const payloads = Array.isArray(payloadOrPayloads) ? payloadOrPayloads : [payloadOrPayloads];
-        const { steps, log } = buildSimSteps(startStreamId, streams, consumers, events, payloads, simulation.maxLoops || 1, generatorHookDeps.generateEventPayload);
+        const { steps } = buildSimSteps(startStreamId, streams, consumers, events, payloads, simulation.maxLoops || 1, generatorHookDeps.generateEventPayload);
 
         if (steps.length === 0) {
             get().showToast('No connected consumers found for this stream');

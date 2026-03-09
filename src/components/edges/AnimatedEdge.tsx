@@ -103,7 +103,7 @@ const MovingDots = React.memo(({ edgePath, flowColor, speed, shape }: { edgePath
     }
 
     return (
-        <g pointerEvents="none" className="gpu-accelerate">
+        <g key={edgePath} pointerEvents="none" className="gpu-accelerate">
             {shapeElement}
         </g>
     );
@@ -111,8 +111,6 @@ const MovingDots = React.memo(({ edgePath, flowColor, speed, shape }: { edgePath
 
 const AnimatedEdge: React.FC<EdgeProps> = ({
     id,
-    source,
-    target,
     sourceX,
     sourceY,
     targetX,
@@ -171,7 +169,7 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
     const isWarning = edgeData?.simulationState === 'warning';
 
     // Default flow color, overridden by warning cycle
-    const flowColor = isWarning ? '#ef4444' : (edgeData?.activeFlowColor || edgeData?.edgeTypeColor || '#6366f1');
+    const flowColor = isWarning ? '#ef4444' : (edgeData?.edgeTypeColor || '#6366f1');
     const baseColor = edgeData?.edgeTypeColor
         ? `color-mix(in srgb, ${edgeData.edgeTypeColor} 55%, ${themeColorMode === 'dark' ? '#475569' : '#94a3b8'})`
         : (themeColorMode === 'dark' ? '#94a3b8' : '#64748b');
@@ -188,7 +186,7 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
             ? flowColor
             : isEdgeHovered
                 ? hoverStrokeColor
-                : (edgeData?.activeFlowColor || baseColor);
+                : baseColor;
     const strokeWidth = isEdgeHovered ? 4 : 2.5;
     // Subtle single glow on hover; stronger during simulation
     const edgeFilter = isActive || isWarning

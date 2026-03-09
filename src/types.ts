@@ -58,7 +58,6 @@ export interface DataFlow {
     id: string;
     name: string;
     description: string;
-    color: string;
     consumerIds: string[];
 }
 
@@ -163,7 +162,7 @@ export interface StoreState {
     updateConsumer: (id: string, patch: Partial<Consumer>) => boolean;
     deleteConsumer: (id: string) => void;
 
-    addFlow: (name: string, color: string, consumerIds: string[], description: string) => void;
+    addFlow: (name: string, consumerIds: string[], description: string) => void;
     updateFlow: (id: string, patch: Partial<DataFlow>) => void;
     deleteFlow: (id: string) => void;
 

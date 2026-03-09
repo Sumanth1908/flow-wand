@@ -2,7 +2,7 @@
  * components/simulation/EventDispatcher.tsx
  */
 import React, { useState, useCallback, useEffect } from 'react';
-import { Play, Radio, Code2, TriangleAlert, RotateCcw, FileJson } from 'lucide-react';
+import { Play, TriangleAlert, RotateCcw } from 'lucide-react';
 import { Box, Typography, Stack, Button, IconButton, Select, MenuItem, TextField, Divider } from '@mui/material';
 import useStore from '../../store/useStore';
 
@@ -17,7 +17,7 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
     const consumers = useStore(s => s.consumers);
     const events = useStore(s => s.events);
     const startSimulation = useStore(s => s.startSimulation);
-    const setMaxLoops = useStore(s => s.setMaxLoops);
+
     const simulation = useStore(s => s.simulation);
     const editingItem = useStore(s => s.editingItem);
 
@@ -28,7 +28,7 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
     const [selectedEventId, setSelectedEventId] = useState('');
     const [payload, setPayload] = useState(DEFAULT_PAYLOAD);
     const [payloadError, setPayloadError] = useState('');
-    const [showPayload, setShowPayload] = useState(true);
+
 
     const selectableStreams = streams;
 
@@ -238,14 +238,5 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
     );
 };
 
-// Simple Badge component if MUI Badge isn't styled this way in their version
-const Badge: React.FC<{ badgeContent: string, color: string, children: React.ReactNode, sx?: any }> = ({ badgeContent, children }) => (
-    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-        {children}
-        <Box sx={{ ml: 1, px: 0.6, py: 0.2, bgcolor: 'primary.main', color: '#fff', borderRadius: 0.5, fontSize: 9, fontWeight: 'bold' }}>
-            {badgeContent}
-        </Box>
-    </Box>
-);
 
 export default EventDispatcher;

@@ -3,7 +3,6 @@ import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
 import { EventType } from '../../types';
 import { Stack, TextField, Typography } from '@mui/material';
-import { TriangleAlert } from 'lucide-react';
 
 const DEFAULT_SCHEMA = JSON.stringify({
     type: 'object',

@@ -449,7 +449,7 @@ const flows: DataFlow[] = [
         id: 'flow-checkout',
         name: 'Checkout → Fulfillment',
         description: 'End-to-end happy path: order placed → validated → paid → packed → shipped',
-        color: '#22c55e',
+
         consumerIds: [
             'cons-order-validator', 'cons-order-enricher',
             'cons-payment-gateway', 'cons-payment-success-handler',
@@ -461,7 +461,7 @@ const flows: DataFlow[] = [
         id: 'flow-fraud',
         name: 'Fraud Detection',
         description: 'Order and payment fraud screening pipeline with ML scoring',
-        color: '#ef4444',
+
         consumerIds: [
             'cons-order-fraud-screen', 'cons-payment-fraud-screen',
             'cons-fraud-ml-scorer', 'cons-fraud-review-router',
@@ -471,7 +471,7 @@ const flows: DataFlow[] = [
         id: 'flow-notifications',
         name: 'Notification Pipeline',
         description: 'All user-facing notification routing from order events to delivery',
-        color: '#a855f7',
+
         consumerIds: [
             'cons-payment-success-handler', 'cons-tracking-updater',
             'cons-email-dispatcher', 'cons-push-dispatcher',
@@ -482,7 +482,7 @@ const flows: DataFlow[] = [
         id: 'flow-analytics',
         name: 'Analytics & Audit',
         description: 'Full data observability: warehouse ingestion, audit trail, and search indexing',
-        color: '#3b82f6',
+
         consumerIds: [
             'cons-analytics-bridge', 'cons-analytics-ingestor',
             'cons-order-audit-writer', 'cons-payment-audit',
@@ -493,7 +493,7 @@ const flows: DataFlow[] = [
         id: 'flow-resilience',
         name: 'Resilience & Recovery',
         description: 'Error handling: payment retries, DLQ processing, SLA monitoring',
-        color: '#f59e0b',
+
         consumerIds: [
             'cons-payment-retry', 'cons-dlq-processor',
             'cons-fulfillment-sla-monitor', 'cons-order-cancellation-handler',

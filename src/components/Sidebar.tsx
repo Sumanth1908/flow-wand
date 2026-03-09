@@ -1,16 +1,15 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../store/useStore';
-import { EventStream, EventType, Consumer, DataFlow } from '../types';
 import { APP_CONFIG } from '../lib/config';
 import {
     BookOpen, Zap, GitBranch, Plus, Trash, Pencil, Play, ChevronDown, Search, Sun, Moon, Download, Upload, FolderOpen, Save, Radio, PanelLeftClose, PanelLeftOpen, Sparkles, Skull
 } from 'lucide-react';
 
 import {
-    Box, Drawer, IconButton, Typography, Button, Menu, MenuItem, List, ListItem, ListItemButton,
-    ListItemIcon, ListItemText, Tooltip, TextField, InputAdornment, Divider, Paper, useTheme, Stack,
-    ListSubheader, Badge
+    Box, IconButton, Typography, Button, Menu, MenuItem, List, ListItem, ListItemButton,
+    ListItemIcon, ListItemText, Tooltip, TextField, InputAdornment, Divider, Paper, Stack,
+    ListSubheader
 } from '@mui/material';
 
 interface TabItem {
@@ -44,11 +43,9 @@ const formatTimestamp = (isoString: string | null) => {
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-const MotionBox = motion(Box);
-const MotionListItem = motion(ListItem);
+const MotionBox = motion.create(Box);
 
 const Sidebar: React.FC = () => {
-    const theme = useTheme();
     const sidebarTab = useStore(s => s.sidebarTab);
     const setSidebarTab = useStore(s => s.setSidebarTab);
     const leftSidebarOpen = useStore(s => s.leftSidebarOpen);
@@ -64,7 +61,6 @@ const Sidebar: React.FC = () => {
     const deleteEvent = useStore(s => s.deleteEvent);
     const activeFlowId = useStore(s => s.activeFlowId);
     const setActiveFlow = useStore(s => s.setActiveFlow);
-    const startSimulation = useStore(s => s.startSimulation);
     const simActive = useStore(s => s.simulation.active);
     const simVisitedStreamIds = useStore(s => s.simulation.visitedStreamIds);
     const simVisitedConsumerIds = useStore(s => s.simulation.visitedConsumerIds);
@@ -466,7 +462,7 @@ const Sidebar: React.FC = () => {
                                                         '&:hover .actions': { opacity: 1, transform: 'translateX(0)' }
                                                     }}
                                                 >
-                                                    <Box sx={{ width: 4, height: 32, bgcolor: f.color, borderRadius: 2, mr: 1.5, flexShrink: 0 }} />
+                                                    <Box sx={{ width: 4, height: 32, bgcolor: 'primary.main', borderRadius: 2, mr: 1.5, flexShrink: 0, opacity: 0.5 }} />
                                                     <ListItemText
                                                         primary={<Typography variant="body2" fontWeight="700" noWrap fontSize={13}>{f.name}</Typography>}
                                                     />

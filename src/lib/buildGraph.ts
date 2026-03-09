@@ -83,12 +83,10 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
 
     // Filter to active flow
     let visibleConsumers = consumers;
-    let activeFlowColor: string | undefined = undefined;
     if (activeFlowId) {
         const flow = flows.find(f => f.id === activeFlowId);
         if (flow) {
             visibleConsumers = consumers.filter(j => flow.consumerIds.includes(j.id));
-            activeFlowColor = flow.color;
         }
     }
 
@@ -115,7 +113,6 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
             partitions: t.partitions,
             description: t.description,
             simulationState: streamSimState(t.id, simulation),
-            activeFlowColor,
         },
     }));
 
@@ -131,7 +128,6 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
             sourceCount: (j.sources || []).length,
             sinkCount: (j.sinks || []).length,
             simulationState: consumerSimState(j.id, simulation),
-            activeFlowColor,
             sourceEvents: Array.from(new Set((j.sources || []).flatMap(s => s.eventIds))).map(eid => {
                 const ev = events.find(e => e.id === eid);
                 return ev ? ev.name : null;
@@ -173,7 +169,7 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
                 }
             }
             const isCycle = simulation?.cycleEdges?.includes(edgeId);
-            const edgeColor = isCycle ? '#ef4444' : (isSimActive ? '#6366f1' : (activeFlowColor || '#b4c4d4'));
+            const edgeColor = isCycle ? '#ef4444' : (isSimActive ? '#6366f1' : '#b4c4d4');
 
             edges.push({
                 id: edgeId, source: streamId, target: consumer.id, type: 'animated',
@@ -188,7 +184,6 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
                     edgeTypeColor: '#6366f1',
                     simulationState: isCycle ? 'warning' : simState,
                     speed: (simulation?.speed || 1000) / 1000,
-                    activeFlowColor,
                     // Specific events for this connection
                     eventNames: (source.eventIds || []).map(eid => {
                         const ev = events.find(e => e.id === eid);
@@ -214,7 +209,7 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
                 }
             }
             const isCycle = simulation?.cycleEdges?.includes(edgeId);
-            const edgeColor = isCycle ? '#ef4444' : (isSimActive ? '#6366f1' : (activeFlowColor || '#b4c4d4'));
+            const edgeColor = isCycle ? '#ef4444' : (isSimActive ? '#6366f1' : '#b4c4d4');
 
             edges.push({
                 id: edgeId, source: consumer.id, target: streamId, type: 'animated',
@@ -229,7 +224,6 @@ export const buildGraph = ({ streams, consumers, flows, events = [], activeFlowI
                     edgeTypeColor: '#f59e0b',
                     simulationState: isCycle ? 'warning' : simState,
                     speed: (simulation?.speed || 1000) / 1000,
-                    activeFlowColor,
                     // Specific events for this connection
                     eventNames: (sink.eventIds || []).map(eid => {
                         const ev = events.find(e => e.id === eid);

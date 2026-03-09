@@ -10,9 +10,9 @@ export const buildFlowActions = (
     getFlows: () => DataFlow[],
     setFlows: (flows: DataFlow[]) => void
 ) => {
-    const addFlow = (name: string, color = '#10b981', consumerIds: string[] = [], description = '') => {
+    const addFlow = (name: string, consumerIds: string[] = [], description = '') => {
         if (!projectId) return;
-        const flow: DataFlow = { id: uuid(), name, consumerIds, description, color };
+        const flow: DataFlow = { id: uuid(), name, consumerIds, description };
         storage.createFlow(projectId, flow);
         setFlows([...getFlows(), flow]);
     };

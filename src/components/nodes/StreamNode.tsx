@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { motion } from 'framer-motion';
 import { BookOpen } from 'lucide-react';
@@ -11,7 +11,6 @@ type StreamNodeData = {
     partitions?: number;
     description?: string;
     simulationState?: 'active' | 'visited' | null;
-    activeFlowColor?: string;
 };
 
 const StreamNode = memo(({ id, data, selected }: NodeProps<Node<StreamNodeData>>) => {
@@ -30,7 +29,7 @@ const StreamNode = memo(({ id, data, selected }: NodeProps<Node<StreamNodeData>>
         ? '#f59e0b'  // sink edge leaving this stream back from consumer — amber
         : '#6366f1'; // source edge coming out — indigo
 
-    const nodeColor = data.activeFlowColor || theme.palette.primary.main;
+    const nodeColor = theme.palette.primary.main;
 
     return (
         <motion.div

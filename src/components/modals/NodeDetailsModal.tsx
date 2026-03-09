@@ -1,7 +1,7 @@
 import React from 'react';
 import useStore from '../../store/useStore';
 import { EventStream, Consumer } from '../../types';
-import { BookOpen, Radio } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import { Box, Typography, Stack, Button, Chip } from '@mui/material';
 
 interface Props {

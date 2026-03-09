@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { Stack, Box, Typography, Divider, Select, MenuItem, Button } from '@mui/material';
-import { Settings2, Footprints, RotateCcw } from 'lucide-react';
+import { Footprints, RotateCcw } from 'lucide-react';
 import useStore from '../../store/useStore';
 
 const SettingsModal: React.FC = () => {

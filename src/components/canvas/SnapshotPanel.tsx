@@ -2,7 +2,7 @@
  * components/canvas/SnapshotPanel.tsx
  */
 import React, { useState } from 'react';
-import { useReactFlow, getNodesBounds, getViewportForBounds } from '@xyflow/react';
+import { useReactFlow, getViewportForBounds } from '@xyflow/react';
 import { Download, Monitor, Layers, Image as ImageIcon, FileCode } from 'lucide-react';
 import { toPng, toSvg } from 'html-to-image';
 import { Box, Typography, Stack, Button, Divider, useTheme } from '@mui/material';
@@ -30,7 +30,7 @@ const SnapshotPanel: React.FC<SnapshotPanelProps> = ({ onClose }) => {
     const [format, setFormat] = useState<'png' | 'svg'>('png');
     const [pixelRatio, setPixelRatio] = useState(2);
     const [isExporting, setIsExporting] = useState(false);
-    const { getNodes } = useReactFlow();
+    const { getNodes, getNodesBounds } = useReactFlow();
     const theme = useTheme();
 
     const handleExport = async () => {
@@ -58,28 +58,12 @@ const SnapshotPanel: React.FC<SnapshotPanelProps> = ({ onClose }) => {
                 const allNodes = getNodes();
                 if (allNodes.length === 0) return;
 
-                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                for (const node of allNodes) {
-                    const el = document.querySelector(`[data-id="${node.id}"]`) as HTMLElement;
-                    const w = node.measured?.width ?? node.width ?? el?.offsetWidth ?? 300;
-                    const h = node.measured?.height ?? node.height ?? el?.offsetHeight ?? 200;
-                    const x = node.position.x;
-                    const y = node.position.y;
-                    if (x < minX) minX = x;
-                    if (y < minY) minY = y;
-                    if (x + w > maxX) maxX = x + w;
-                    if (y + h > maxY) maxY = y + h;
-                }
-
-                // Consider edges curving out of bounds
-                const nodesBounds = {
-                    x: minX === Infinity ? 0 : minX,
-                    y: minY === Infinity ? 0 : minY,
-                    width: minX === Infinity ? 0 : maxX - minX,
-                    height: minY === Infinity ? 0 : maxY - minY,
-                };
-
-                const padding = 100;
+                // getNodesBounds handles everything, but we ensure we have at least some size
+                const nodesBounds = getNodesBounds(allNodes);
+                const padding = 80;
+                
+                // We want a high-fidelity export, so we force zoom to be at least 1.0
+                // This prevents the "tiny cluster in a sea of white" issue.
                 const imageWidth = nodesBounds.width + padding * 2;
                 const imageHeight = nodesBounds.height + padding * 2;
 
@@ -87,7 +71,7 @@ const SnapshotPanel: React.FC<SnapshotPanelProps> = ({ onClose }) => {
                     nodesBounds,
                     imageWidth,
                     imageHeight,
-                    0.1,  // minZoom
+                    1.0,  // minZoom: Don't let it be tiny
                     4,    // maxZoom
                     padding,
                 );
@@ -98,11 +82,12 @@ const SnapshotPanel: React.FC<SnapshotPanelProps> = ({ onClose }) => {
                     height: imageHeight,
                     pixelRatio: format === 'png' ? pixelRatio : 1,
                     filter: filterNodes,
+                    skipFonts: true, // Fixes SecurityError with remote Google Fonts CSS
                     style: {
                         width: `${imageWidth}px`,
                         height: `${imageHeight}px`,
                         transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-                        transformOrigin: 'top left',
+                        transformOrigin: '0 0',
                     },
                 };
 
@@ -119,6 +104,7 @@ const SnapshotPanel: React.FC<SnapshotPanelProps> = ({ onClose }) => {
                     backgroundColor: bgColor,
                     pixelRatio: format === 'png' ? pixelRatio : 1,
                     filter: filterNodes,
+                    skipFonts: true, // Fixes SecurityError with remote Google Fonts CSS
                 };
 
                 const dataUrl = format === 'png'
@@ -139,8 +125,44 @@ const SnapshotPanel: React.FC<SnapshotPanelProps> = ({ onClose }) => {
         const a = document.createElement('a');
         const resStr = ext === 'png' ? `-${pixelRatio}x` : '';
         a.download = `flowwand-${scope}${resStr}-${Date.now()}.${ext}`;
-        a.href = dataUrl;
-        a.click();
+        
+        // Use Blob for SVGs to avoid length limits in data URLs
+        if (ext === 'svg') {
+            let svgContent = decodeURIComponent(dataUrl.replace('data:image/svg+xml;charset=utf-8,', ''));
+            
+            // Fix SVG so it's scalable (infinite zoom) instead of fixed dimensions
+            svgContent = svgContent.replace(/<svg\s+([^>]*?)>/, (match, attrs) => {
+                const widthMatch = attrs.match(/width=(["'])([^"']+)\1/);
+                const heightMatch = attrs.match(/height=(["'])([^"']+)\1/);
+                if (widthMatch && heightMatch) {
+                    const w = parseFloat(widthMatch[2]);
+                    const h = parseFloat(heightMatch[2]);
+                    let newAttrs = attrs
+                        .replace(/width=(["'])(.*?)\1/i, 'width="100%"')
+                        .replace(/height=(["'])(.*?)\1/i, 'height="100%"')
+                        .replace(/viewBox=(["'])(.*?)\1/gi, ''); // Prevent duplicate viewBox error
+
+                    // Also remove any stray spaces left over if multiple replacements happened
+                    newAttrs = newAttrs.trim();
+
+                    return `<svg viewBox="0 0 ${w} ${h}" ${newAttrs}>`;
+                }
+                return match;
+            });
+
+            const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } else {
+            a.href = dataUrl;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
     };
 
     return (

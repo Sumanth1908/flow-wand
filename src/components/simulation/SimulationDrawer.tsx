@@ -1,26 +1,20 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import {
     ListTree,
     BookOpen,
     Zap,
-    X,
-    ChevronDown,
-    ChevronUp,
-    RotateCcw
+    X
 } from 'lucide-react';
-import { Drawer, Box, Stack, Typography, IconButton, Divider, Tooltip, Badge, Button } from '@mui/material';
+import { Drawer, Box, Stack, Typography, IconButton, Divider, Tooltip, Badge } from '@mui/material';
 import useStore from '../../store/useStore';
 import SimulationLog from './SimulationLog';
 import { APP_CONFIG } from '../../lib/config';
 
-const MotionBox = motion(Box);
 
 const SimulationDrawer: React.FC = () => {
     const simulation = useStore(s => s.simulation);
     const advanceSimulation = useStore(s => s.advanceSimulation);
-    const clearSimulation = useStore(s => s.clearSimulation);
-    const stopSimulation = useStore(s => s.stopSimulation);
     const rightSidebarOpen = useStore(s => s.rightSidebarOpen);
     const setRightSidebar = useStore(s => s.setRightSidebar);
     const prevActiveRef = useRef(simulation.active);
@@ -73,7 +67,7 @@ const SimulationDrawer: React.FC = () => {
                 >
                     <Badge
                         badgeContent={simulation.eventLog?.length || 0}
-                        color="primary"
+                        color="secondary"
                         max={999}
                         sx={{
                             '& .MuiBadge-badge': {
@@ -90,7 +84,7 @@ const SimulationDrawer: React.FC = () => {
                                 sx={{
                                     width: 52,
                                     height: 52,
-                                    bgcolor: simulation.active ? 'success.main' : 'primary.main',
+                                    bgcolor: simulation.active ? 'success.main' : 'text.secondary',
                                     color: 'white',
                                     boxShadow: 4,
                                     ...(simulation.active && {
@@ -102,7 +96,7 @@ const SimulationDrawer: React.FC = () => {
                                         }
                                     }),
                                     '&:hover': {
-                                        bgcolor: simulation.active ? 'success.dark' : 'primary.dark',
+                                        bgcolor: simulation.active ? 'success.dark' : 'text.primary',
                                         transform: 'scale(1.1)',
                                     }
                                 }}
@@ -135,8 +129,8 @@ const SimulationDrawer: React.FC = () => {
                             <Box sx={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 p: 1, borderRadius: 2,
-                                bgcolor: simulation.active ? 'success.light' : 'primary.light',
-                                color: 'white',
+                                bgcolor: simulation.active ? 'success.light' : 'action.hover',
+                                color: simulation.active ? 'white' : 'text.secondary',
                                 ...(simulation.active && {
                                     animation: 'pulse 2s infinite ease-in-out',
                                     '@keyframes pulse': {
