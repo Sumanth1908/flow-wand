@@ -173,14 +173,19 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                         <Typography 
                             variant="caption" 
                             sx={{ 
+                                display: '-webkit-box',
+                                WebkitLineClamp: 3, // Approx 20-25 words
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
                                 color: 'text.secondary', 
-                                fontSize: 12, // Slightly larger
+                                fontSize: 12,
                                 lineHeight: 1.5,
                                 fontWeight: 500
                             }}
                         >
                             {data.description}
                         </Typography>
+
                     )}
 
 

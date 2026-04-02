@@ -27,13 +27,15 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR', nod
 
     dagreGraph.setGraph({
         rankdir: direction,
-        nodesep: 80, // vertical space between nodes
-        ranksep: 200, // horizontal space between nodes
+        nodesep: 120, // Increased vertical space between nodes
+        ranksep: 280, // Increased horizontal space between nodes
     });
 
-    // Approximate dimensions based on CSS styling of stream and consumer nodes
-    const NODE_WIDTH = 260;
-    const NODE_HEIGHT = 160;
+
+    // Approximate dimensions based on CSS styling (280px width + extra margin)
+    const NODE_WIDTH = 300; 
+    const NODE_HEIGHT = 220; // Accounts for multiline descriptions and badges
+
 
     nodes.forEach((node) => {
         dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });

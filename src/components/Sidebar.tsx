@@ -305,7 +305,16 @@ const Sidebar: React.FC = () => {
                                                         </Box>
                                                         <ListItemText
                                                             primary={<Typography variant="body2" fontWeight="700" sx={{ fontSize: 13, lineHeight: 1.2 }}>{s.name}</Typography>}
-                                                            secondary={<Typography variant="caption" sx={{ display: 'block', opacity: 0.6, fontSize: 11, mt: 0.3, lineHeight: 1.3 }}>{s.description || s.type}</Typography>}
+                                                            secondary={<Typography variant="caption" sx={{ 
+                                                                display: '-webkit-box',
+                                                                WebkitLineClamp: 3,
+                                                                WebkitBoxOrient: 'vertical',
+                                                                overflow: 'hidden',
+                                                                opacity: 0.6, 
+                                                                fontSize: 11, 
+                                                                mt: 0.3, 
+                                                                lineHeight: 1.3 
+                                                            }}>{s.description || s.type}</Typography>}
                                                         />
 
                                                         <Stack direction="row" spacing={0.5} className="actions" sx={{ opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(5px)' }, transition: '0.2s', flexShrink: 0 }}>
@@ -368,8 +377,16 @@ const Sidebar: React.FC = () => {
                                                                 </Box>
                                                                 <ListItemText
                                                                     primary={<Typography variant="body2" fontWeight="700" noWrap fontSize={13} color="error.main">{s.name}</Typography>}
-                                                                    secondary={<Typography variant="caption" noWrap sx={{ display: 'block', opacity: 0.6, fontSize: 11 }}>{s.description || s.type}</Typography>}
+                                                                    secondary={<Typography variant="caption" sx={{ 
+                                                                        display: '-webkit-box',
+                                                                        WebkitLineClamp: 3,
+                                                                        WebkitBoxOrient: 'vertical',
+                                                                        overflow: 'hidden',
+                                                                        opacity: 0.6, 
+                                                                        fontSize: 11 
+                                                                    }}>{s.description || s.type}</Typography>}
                                                                 />
+
                                                                 <Stack direction="row" spacing={0.5} className="actions" sx={{ opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(5px)' }, transition: '0.2s', flexShrink: 0 }}>
                                                                     <IconButton size="small" onClick={() => openModal('stream', s)} sx={{ width: 24, height: 24 }}><Pencil size={12} /></IconButton>
                                                                     <IconButton size="small" color="error" onClick={() => openModal('confirm', { title: 'Delete DLQ', message: `Delete DLQ stream "${s.name}"?`, onConfirm: () => deleteStream(s.id) })} sx={{ width: 24, height: 24 }}><Trash size={12} /></IconButton>
@@ -419,8 +436,18 @@ const Sidebar: React.FC = () => {
                                                         </Box>
                                                         <ListItemText
                                                             primary={<Typography variant="body2" fontWeight="700" sx={{ fontSize: 13, lineHeight: 1.2 }}>{c.name}</Typography>}
-                                                            secondary={<Typography variant="caption" sx={{ display: 'block', opacity: 0.6, fontSize: 11, mt: 0.3, lineHeight: 1.3 }}>{(c.sources || []).length} in → {(c.sinks || []).length} out</Typography>}
+                                                            secondary={<Typography variant="caption" sx={{ 
+                                                                display: '-webkit-box',
+                                                                WebkitLineClamp: 3,
+                                                                WebkitBoxOrient: 'vertical',
+                                                                overflow: 'hidden',
+                                                                opacity: 0.6, 
+                                                                fontSize: 11, 
+                                                                mt: 0.3, 
+                                                                lineHeight: 1.3 
+                                                            }}>{c.description || ( (c.sources || []).length + ' in → ' + (c.sinks || []).length + ' out' )}</Typography>}
                                                         />
+
 
                                                         <Stack direction="row" spacing={0.5} className="actions" sx={{ opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(5px)' }, transition: '0.2s', flexShrink: 0 }}>
                                                             <IconButton size="small" onClick={() => openModal('consumer', c)} sx={{ width: 24, height: 24 }}><Pencil size={12} /></IconButton>
@@ -467,7 +494,17 @@ const Sidebar: React.FC = () => {
                                                 >
                                                     <Box sx={{ width: 4, height: 32, bgcolor: 'primary.main', borderRadius: 2, mr: 1.5, flexShrink: 0, opacity: 0.5 }} />
                                                     <ListItemText
-                                                        primary={<Typography variant="body2" fontWeight="700" noWrap fontSize={13}>{f.name}</Typography>}
+                                                        primary={<Typography variant="body2" fontWeight="700" sx={{ fontSize: 13, lineHeight: 1.2 }}>{f.name}</Typography>}
+                                                        secondary={<Typography variant="caption" sx={{ 
+                                                            display: '-webkit-box',
+                                                            WebkitLineClamp: 3,
+                                                            WebkitBoxOrient: 'vertical',
+                                                            overflow: 'hidden',
+                                                            opacity: 0.6, 
+                                                            fontSize: 11, 
+                                                            mt: 0.3, 
+                                                            lineHeight: 1.3 
+                                                        }}>{f.description || 'No description'}</Typography>}
                                                     />
                                                     <Stack direction="row" spacing={0.5} className="actions" sx={{ opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(10px)' }, transition: '0.3s cubic-bezier(0.4, 0, 0.2, 1)', flexShrink: 0 }}>
                                                         <IconButton size="small" onClick={(e) => { e.stopPropagation(); openModal('flow', f); }} sx={{ bgcolor: 'action.hover' }}><Pencil size={14} /></IconButton>
@@ -512,9 +549,19 @@ const Sidebar: React.FC = () => {
                                                     <Stack direction="row" alignItems="center" spacing={1.5}>
                                                         <Box sx={{ width: 4, height: 32, bgcolor: 'error.main', borderRadius: 2, flexShrink: 0 }} />
                                                         <ListItemText
-                                                            primary={<Typography variant="body2" fontWeight="700" noWrap fontSize={13}>{e.name}</Typography>}
-                                                            secondary={<Typography variant="caption" noWrap sx={{ display: 'block', opacity: 0.6 }}>{e.description || 'No description'}</Typography>}
+                                                            primary={<Typography variant="body2" fontWeight="700" sx={{ fontSize: 13, lineHeight: 1.2 }}>{e.name}</Typography>}
+                                                            secondary={<Typography variant="caption" sx={{ 
+                                                                display: '-webkit-box',
+                                                                WebkitLineClamp: 3,
+                                                                WebkitBoxOrient: 'vertical',
+                                                                overflow: 'hidden',
+                                                                opacity: 0.6,
+                                                                fontSize: 11,
+                                                                mt: 0.3,
+                                                                lineHeight: 1.3
+                                                            }}>{e.description || 'No description'}</Typography>}
                                                         />
+
                                                         <Stack direction="row" spacing={0.5} className="actions" sx={{ opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(10px)' }, transition: '0.3s cubic-bezier(0.4, 0, 0.2, 1)', flexShrink: 0 }}>
                                                             <IconButton size="small" onClick={() => openModal('event', e)} sx={{ bgcolor: 'action.hover' }}><Pencil size={14} /></IconButton>
                                                             <IconButton size="small" color="error" onClick={() => openModal('confirm', { title: 'Delete Event', message: 'Delete event type?', onConfirm: () => deleteEvent(e.id) })} sx={{ bgcolor: 'rgba(239, 68, 68, 0.1)' }}><Trash size={14} /></IconButton>

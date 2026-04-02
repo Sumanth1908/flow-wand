@@ -146,8 +146,11 @@ const FlowCanvasInner: React.FC = () => {
                 elementsSelectable={!isLocked}
                 minZoom={0.1}
                 maxZoom={3}
+                snapToGrid={true}
+                snapGrid={[20, 20]}
                 style={{ background: 'var(--bg-primary)' }}
             >
+
 
                 <MiniMap
                     position="bottom-right"

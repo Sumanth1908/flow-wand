@@ -141,6 +141,10 @@ const StreamNode = memo(({ id, data, selected }: NodeProps<Node<StreamNodeData>>
                         <Typography 
                             variant="caption" 
                             sx={{ 
+                                display: '-webkit-box',
+                                WebkitLineClamp: 3, // Roughly 20 words
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
                                 color: 'text.secondary', 
                                 fontSize: 12,
                                 lineHeight: 1.5,
@@ -149,6 +153,7 @@ const StreamNode = memo(({ id, data, selected }: NodeProps<Node<StreamNodeData>>
                         >
                             {data.description}
                         </Typography>
+
                     )}
                 </Box>
 
