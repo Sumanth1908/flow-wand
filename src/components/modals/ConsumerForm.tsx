@@ -587,18 +587,88 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                                     <Typography variant="caption" fontWeight="bold" sx={{ mb: 1, display: 'block', color: 'primary.main', textTransform: 'uppercase' }}>
                                                         Data Construction Logic
                                                     </Typography>
-                                                    <TextField
-                                                        multiline rows={5} fullWidth
-                                                        variant="standard"
-                                                        placeholder="// Construct your output here..."
-                                                        value={rule.transformScript || ''}
-                                                        onChange={e => updateRule(rule.id, { transformScript: e.target.value })}
-                                                        InputProps={{
-                                                            disableUnderline: true,
-                                                            sx: { fontFamily: 'monospace', fontSize: 11 }
-                                                        }}
-                                                    />
+
+                                                    {/* Mapping Helper */}
+                                                    <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+                                                        <Stack spacing={1.5}>
+                                                            {/* Input Reference */}
+                                                            {(() => {
+                                                                const inEv = events.find(e => e.id === rule.sourceEventId);
+                                                                if (!inEv) return null;
+                                                                let fields: string[] = [];
+                                                                try { fields = Object.keys(JSON.parse(inEv.schema)); } catch(e) {}
+                                                                if (fields.length === 0) return null;
+                                                                return (
+                                                                    <Box>
+                                                                        <Typography variant="caption" sx={{ fontSize: 9, fontWeight: 'bold', color: 'text.secondary', display: 'block', mb: 0.5, letterSpacing: 0.5 }}>
+                                                                            INPUT FIELDS (Source):
+                                                                        </Typography>
+                                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                                            {fields.map(f => (
+                                                                                <Chip 
+                                                                                    key={f} label={f} size="small" 
+                                                                                    onClick={() => {
+                                                                                        const insert = `payload.${f}`;
+                                                                                        const old = rule.transformScript || '';
+                                                                                        updateRule(rule.id, { transformScript: old + insert });
+                                                                                    }}
+                                                                                    sx={{ height: 16, fontSize: 9, fontFamily: 'monospace', cursor: 'pointer' }} 
+                                                                                />
+                                                                            ))}
+                                                                        </Box>
+                                                                    </Box>
+                                                                );
+                                                            })()}
+
+                                                            {/* Output Goal */}
+                                                            {(() => {
+                                                                const outEv = events.find(e => e.id === rule.outputEventId);
+                                                                if (!outEv) return null;
+                                                                let fields: string[] = [];
+                                                                try { fields = Object.keys(JSON.parse(outEv.schema)); } catch(e) {}
+                                                                if (fields.length === 0) return null;
+                                                                return (
+                                                                    <Box>
+                                                                        <Typography variant="caption" sx={{ fontSize: 9, fontWeight: 'bold', color: 'secondary.main', display: 'block', mb: 0.5, letterSpacing: 0.5 }}>
+                                                                            EXPECTED OUTPUT ({outEv.name}):
+                                                                        </Typography>
+                                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                                            {fields.map(f => (
+                                                                                <Chip 
+                                                                                    key={f} label={f} size="small" variant="outlined" color="secondary"
+                                                                                    onClick={() => {
+                                                                                        const insert = `"${f}": ""`;
+                                                                                        const old = rule.transformScript || '';
+                                                                                        updateRule(rule.id, { transformScript: old + insert });
+                                                                                    }}
+                                                                                    sx={{ height: 16, fontSize: 9, fontFamily: 'monospace', cursor: 'pointer' }} 
+                                                                                />
+                                                                            ))}
+                                                                        </Box>
+                                                                    </Box>
+                                                                );
+                                                            })()}
+                                                        </Stack>
+                                                    </Box>
+
+                                                    <Paper variant="outlined" sx={{ p: 1, bgcolor: 'background.paper' }}>
+                                                        <TextField
+                                                            multiline rows={8} fullWidth
+                                                            variant="standard"
+                                                            placeholder="// Example transformation:&#13;&#10;return {&#13;&#10;  id: payload.id,&#13;&#10;  status: 'PROCESSED'&#13;&#10;};"
+                                                            value={rule.transformScript || ''}
+                                                            onChange={e => updateRule(rule.id, { transformScript: e.target.value })}
+                                                            InputProps={{
+                                                                disableUnderline: true,
+                                                                sx: { fontFamily: 'monospace', fontSize: 11, lineHeight: 1.6 }
+                                                            }}
+                                                        />
+                                                    </Paper>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', fontSize: 9, opacity: 0.8 }}>
+                                                        💡 TIP: To modify the incoming data, use <code>return &#123; ...payload, newField: 'value' &#125;;</code>
+                                                    </Typography>
                                                 </Box>
+
                                             )}
                                         </Stack>
                                     ))}
