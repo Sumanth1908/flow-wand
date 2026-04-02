@@ -161,9 +161,10 @@ const Sidebar: React.FC = () => {
                     <Box sx={{ p: 0.6, borderRadius: 1.5, border: 1, borderColor: 'divider', mr: 1.2, display: 'flex', bgcolor: 'background.default', color: 'text.secondary' }}>
                         <FolderOpen size={14} />
                     </Box>
-                    <Typography noWrap variant="body2" fontWeight="bold" sx={{ flex: 1, textAlign: 'left' }}>
+                    <Typography variant="body2" fontWeight="bold" sx={{ flex: 1, textAlign: 'left', lineHeight: 1.2 }}>
                         {activeProject?.name || 'Select Project'}
                     </Typography>
+
                 </Button>
                 <Stack direction="row" spacing={0.5}>
                     <Tooltip title="Save project"><IconButton size="small" color="success" onClick={saveProject}><Save size={16} /></IconButton></Tooltip>
@@ -303,9 +304,10 @@ const Sidebar: React.FC = () => {
                                                             <BookOpen size={14} />
                                                         </Box>
                                                         <ListItemText
-                                                            primary={<Typography variant="body2" fontWeight="700" noWrap fontSize={13}>{s.name}</Typography>}
-                                                            secondary={<Typography variant="caption" noWrap sx={{ display: 'block', opacity: 0.6, fontSize: 11 }}>{s.description || s.type}</Typography>}
+                                                            primary={<Typography variant="body2" fontWeight="700" sx={{ fontSize: 13, lineHeight: 1.2 }}>{s.name}</Typography>}
+                                                            secondary={<Typography variant="caption" sx={{ display: 'block', opacity: 0.6, fontSize: 11, mt: 0.3, lineHeight: 1.3 }}>{s.description || s.type}</Typography>}
                                                         />
+
                                                         <Stack direction="row" spacing={0.5} className="actions" sx={{ opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(5px)' }, transition: '0.2s', flexShrink: 0 }}>
                                                             <IconButton size="small" color="primary" onClick={() => handleSimulate(s.id)} disabled={simActive} sx={{ width: 24, height: 24 }}><Play size={12} /></IconButton>
                                                             <IconButton size="small" onClick={() => openModal('stream', s)} sx={{ width: 24, height: 24 }}><Pencil size={12} /></IconButton>
@@ -416,9 +418,10 @@ const Sidebar: React.FC = () => {
                                                             <Zap size={14} />
                                                         </Box>
                                                         <ListItemText
-                                                            primary={<Typography variant="body2" fontWeight="700" noWrap fontSize={13}>{c.name}</Typography>}
-                                                            secondary={<Typography variant="caption" noWrap sx={{ display: 'block', opacity: 0.6, fontSize: 11 }}>{(c.sources || []).length} in → {(c.sinks || []).length} out</Typography>}
+                                                            primary={<Typography variant="body2" fontWeight="700" sx={{ fontSize: 13, lineHeight: 1.2 }}>{c.name}</Typography>}
+                                                            secondary={<Typography variant="caption" sx={{ display: 'block', opacity: 0.6, fontSize: 11, mt: 0.3, lineHeight: 1.3 }}>{(c.sources || []).length} in → {(c.sinks || []).length} out</Typography>}
                                                         />
+
                                                         <Stack direction="row" spacing={0.5} className="actions" sx={{ opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(5px)' }, transition: '0.2s', flexShrink: 0 }}>
                                                             <IconButton size="small" onClick={() => openModal('consumer', c)} sx={{ width: 24, height: 24 }}><Pencil size={12} /></IconButton>
                                                             <IconButton size="small" color="error" onClick={() => openModal('confirm', { title: 'Delete Consumer', message: 'Delete consumer?', onConfirm: () => deleteConsumer(c.id) })} sx={{ width: 24, height: 24 }}><Trash size={12} /></IconButton>

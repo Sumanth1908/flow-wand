@@ -78,34 +78,46 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
             <Paper
                 elevation={selected ? 8 : 2}
                 sx={{
-                    width: 250,              // Fixed width
-                    aspectRatio: '2 / 1.1',  // Maintain ratio
-                    bgcolor: 'background.paper',
+                    width: 280,
+                    minHeight: 140,
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(30, 41, 59, 0.7)' : 'background.paper',
+                    backdropFilter: 'blur(12px)',
                     borderRadius: getBorderRadius(),
-                    border: consumerType === 'database' ? 0 : 2,
-                    borderBottomWidth: consumerType === 'database' ? 6 : 2,
-                    borderTopWidth: consumerType === 'database' ? 6 : 2,
+                    border: consumerType === 'database' ? 0 : 1,
+                    borderBottomWidth: consumerType === 'database' ? 6 : 1,
+                    borderTopWidth: consumerType === 'database' ? 6 : 1,
                     borderColor: selected
                         ? nodeColor
                         : isEdgeHighlighted
                             ? highlightColor
-                            : (isVisited ? `color-mix(in srgb, ${nodeColor} 40%, ${theme.palette.divider})` : 'divider'),
+                            : (isVisited ? `color-mix(in srgb, ${nodeColor} 30%, ${theme.palette.divider})` : 'divider'),
                     borderStyle: 'solid',
-                    overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'all 0.15s ease',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                     position: 'relative',
+                    overflow: 'hidden', // Clips header to match curved corners
+
                     boxShadow: isEdgeHighlighted
-                        ? `0 0 0 1px ${highlightColor}66, 0 0 8px ${highlightColor}55`
+                        ? `0 0 0 2px ${highlightColor}33, 0 8px 16px ${highlightColor}22`
                         : selected
-                            ? `0 0 20px color-mix(in srgb, ${nodeColor} 20%, transparent)`
-                            : theme.shadows[2],
+                            ? `0 0 0 2px ${nodeColor}44, 0 12px 24px color-mix(in srgb, ${nodeColor} 15%, transparent)`
+                            : '0 4px 12px rgba(0,0,0,0.1)',
                     '&:hover': {
                         borderColor: nodeColor,
-                        boxShadow: `0 8px 24px rgba(0,0,0,0.3)`
+                        transform: 'translateY(-2px)',
+                        boxShadow: `0 12px 32px rgba(0,0,0,0.2)`
+                    },
+                    '&::before': { // Subtle glass glow
+                        content: '""',
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        borderRadius: 'inherit',
+                        background: `linear-gradient(135deg, ${nodeColor}11 0%, transparent 40%)`,
+                        pointerEvents: 'none'
                     }
                 }}
+
 
             >
                 <Stack
@@ -136,42 +148,49 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                 </Stack>
 
                 {/* Node Body */}
-                <Box sx={{ p: 2, flex: 1, opacity: isVisited && !isActive && !selected ? 0.7 : 1, overflow: 'hidden' }}>
+                <Box sx={{ 
+                    p: 2.5,  // Increased padding
+                    flex: 1, 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    gap: 1.5, // Better spacing between elements
+                    opacity: isVisited && !isActive && !selected ? 0.7 : 1, 
+                }}>
                     <Typography 
                         variant="body1" 
-                        fontWeight="bold" 
+                        fontWeight="900" // More punchy
                         sx={{ 
                             color: 'text.primary', 
-                            fontSize: 15,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden'
+                            fontSize: 16, // Slightly larger
+                            lineHeight: 1.2,
+                            letterSpacing: -0.2
                         }}
                     >
                         {data.label}
                     </Typography>
+                    
                     {data.description && (
                         <Typography 
                             variant="caption" 
                             sx={{ 
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
                                 color: 'text.secondary', 
-                                mt: 0.5, 
-                                fontSize: 11 
+                                fontSize: 12, // Slightly larger
+                                lineHeight: 1.5,
+                                fontWeight: 500
                             }}
                         >
                             {data.description}
                         </Typography>
                     )}
+
+
                     {/* DLQ Badge */}
                     {data.dlqSinkStreamName && (
                         <Box
                             sx={{
-                                mt: 1,
+                                mt: 'auto', // Push to bottom
+                                pt: 1,
+
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 0.5,
@@ -187,14 +206,13 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                         >
                             <Typography
                                 sx={{
-                                    fontSize: 9,
-                                    fontWeight: 900,
-                                    color: '#ef4444',
                                     textTransform: 'uppercase',
                                     letterSpacing: 0.4,
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
+                                    lineHeight: 1.4, // Added for wrapping
+                                    fontSize: 9,
+                                    fontWeight: 900,
+                                    color: '#ef4444'
+
                                 }}
                             >
                                 ☠ DLQ → {data.dlqSinkStreamName}

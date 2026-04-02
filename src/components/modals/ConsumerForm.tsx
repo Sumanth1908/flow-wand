@@ -411,44 +411,61 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                     {routingRules.map((rule) => (
                                         <Stack key={rule.id} spacing={1.5} sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 3, bgcolor: 'background.default', position: 'relative' }}>
                                             {/* Header: Semantic Builder Top Row */}
-                                            <Stack direction="row" spacing={1} alignItems="center">
-                                                <Typography variant="caption" fontWeight="900" color="primary.main" sx={{ mr: 1 }}>IF</Typography>
+                                            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <Typography variant="caption" fontWeight="900" color="primary.main" sx={{ mr: 1 }}>IF</Typography>
 
-                                                <Select
-                                                    size="small" value={rule.sourceStreamId || 'any'}
-                                                    onChange={e => updateRule(rule.id, { sourceStreamId: e.target.value === 'any' ? undefined : e.target.value })}
-                                                    sx={{ height: 32, fontSize: 11, minWidth: 100, bgcolor: 'action.hover' }}
-                                                >
-                                                    <MenuItem value="any">Any Source</MenuItem>
-                                                    {sources.map(s => (
-                                                        <MenuItem key={s.streamId} value={s.streamId}>{streams.find(st => st.id === s.streamId)?.name}</MenuItem>
-                                                    ))}
-                                                </Select>
+                                                    <Select
+                                                        size="small" value={rule.sourceStreamId || 'any'}
+                                                        onChange={e => updateRule(rule.id, { sourceStreamId: e.target.value === 'any' ? undefined : e.target.value })}
+                                                        sx={{ height: 32, fontSize: 11, minWidth: 140, bgcolor: 'action.hover', borderRadius: 1.5 }}
+                                                    >
+                                                        <MenuItem value="any">Any Source</MenuItem>
+                                                        {sources.map(s => (
+                                                            <MenuItem key={s.streamId} value={s.streamId}>{streams.find(st => st.id === s.streamId)?.name}</MenuItem>
+                                                        ))}
+                                                    </Select>
 
-                                                <Select
-                                                    size="small" value={rule.sourceEventId || 'any'}
-                                                    onChange={e => updateRule(rule.id, { sourceEventId: e.target.value === 'any' ? undefined : e.target.value })}
-                                                    sx={{ height: 32, fontSize: 11, minWidth: 100, bgcolor: 'action.hover' }}
-                                                >
-                                                    <MenuItem value="any">Any Event</MenuItem>
-                                                    {events.filter(ev => {
-                                                        const sourceIds = (sources.find(src => src.streamId === rule.sourceStreamId) || sources[0])?.eventIds || [];
-                                                        return sourceIds.includes(ev.id);
-                                                    }).map(ev => (
-                                                        <MenuItem key={ev.id} value={ev.id}>{ev.name}</MenuItem>
-                                                    ))}
-                                                </Select>
-
-                                                <Typography variant="caption" fontWeight="bold" color="text.secondary">WHERE</Typography>
-
-                                                <TextField
-                                                    size="small" placeholder="payload.total > 100"
-                                                    value={rule.condition} onChange={e => updateRule(rule.id, { condition: e.target.value })}
-                                                    sx={{ flex: 1, '& .MuiInputBase-input': { fontSize: 11, fontFamily: 'monospace' } }}
-                                                />
-
-                                                <IconButton size="small" color="error" onClick={() => deleteRule(rule.id)} sx={{ ml: 1 }}><Trash2 size={16} /></IconButton>
+                                                    <Select
+                                                        size="small" value={rule.sourceEventId || 'any'}
+                                                        onChange={e => updateRule(rule.id, { sourceEventId: e.target.value === 'any' ? undefined : e.target.value })}
+                                                        sx={{ height: 32, fontSize: 11, minWidth: 140, bgcolor: 'action.hover', borderRadius: 1.5 }}
+                                                    >
+                                                        <MenuItem value="any">Any Event</MenuItem>
+                                                        {events.filter(ev => {
+                                                            const sourceIds = (sources.find(src => src.streamId === rule.sourceStreamId) || sources[0])?.eventIds || [];
+                                                            return sourceIds.includes(ev.id);
+                                                        }).map(ev => (
+                                                            <MenuItem key={ev.id} value={ev.id}>{ev.name}</MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </Stack>
+                                                <IconButton size="small" color="error" onClick={() => deleteRule(rule.id)} sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }}><Trash2 size={16} /></IconButton>
                                             </Stack>
+
+                                            {/* WHERE Row: Full Width Condition Textarea */}
+                                            <Stack direction="row" spacing={2} sx={{ pl: 3, borderLeft: '2px solid', borderColor: 'divider' }}>
+                                                <Typography variant="caption" fontWeight="900" color="text.secondary" sx={{ minWidth: 46, mt: 1 }}>WHERE</Typography>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <TextField
+                                                        size="small" fullWidth multiline rows={2}
+                                                        placeholder="e.g. payload.price > 100 && payload.status === 'valid'"
+                                                        value={rule.condition} onChange={e => updateRule(rule.id, { condition: e.target.value })}
+                                                        sx={{ 
+                                                            '& .MuiInputBase-root': { py: 0.8, bgcolor: 'background.paper' },
+                                                            '& .MuiInputBase-input': { fontSize: 12, fontFamily: 'monospace' } 
+                                                        }}
+                                                        variant="outlined"
+                                                    />
+                                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: 9 }}>
+                                                        Evaluates as <code>return ({rule.condition || '...'})</code>. Available: <code>payload</code>. 
+                                                        Use <code>&&</code>, <code>||</code> for multiple conditions.
+                                                    </Typography>
+                                                </Box>
+
+                                            </Stack>
+
+
 
                                             {/* Bottom Row: Then EMIT */}
                                             <Stack direction="row" spacing={1} alignItems="center" sx={{ pl: 3, py: 0.5, borderLeft: '2px solid', borderColor: 'primary.light' }}>
