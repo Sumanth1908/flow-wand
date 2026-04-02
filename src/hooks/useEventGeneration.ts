@@ -28,23 +28,17 @@ export const useEventGeneration = () => {
             } catch { /* ignore invalid schema */ }
         });
 
-        // Fill schema using sourceData
-        const result: any = { ...base };
+        // Build result by PRESERVING all current sourceData fields (the result of transformation)
+        // while ensuring any REQUIRED fields from the schema are present (with defaults if missing)
+        const result: any = { ...sourceData, ...base };
+        
         Object.keys(mergedSchema).forEach(key => {
-            if (sourceData && sourceData[key] !== undefined) {
-                result[key] = sourceData[key];
-            } else {
-                // Default value from schema or dummy
+            if (result[key] === undefined) {
+                // If it's missing from the source transformation but exists in schema, add the placeholder
                 result[key] = mergedSchema[key];
             }
         });
 
-        // Optionally keep processed fields from source if they aren't in schema but look important
-        // (like orderId, correlationId, etc)
-        const stickyFields = ['orderId', 'id', 'correlationId', 'traceId'];
-        stickyFields.forEach(f => {
-            if (sourceData[f] && !result[f]) result[f] = sourceData[f];
-        });
 
         return result;
     };
