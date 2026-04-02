@@ -140,11 +140,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                 label="Consumer Name" fullWidth size="small" autoFocus
                                 value={name} onChange={e => setName(e.target.value)}
                                 InputLabelProps={{ shrink: true }}
-                            />
-                            <TextField
-                                label="Short Description" fullWidth size="small"
-                                value={desc} onChange={e => setDesc(e.target.value)}
-                                InputLabelProps={{ shrink: true }}
+                                sx={{ flex: 2 }}
                             />
                             <TextField
                                 label="Type"
@@ -152,7 +148,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                 size="small"
                                 value={consumerType}
                                 onChange={e => setConsumerType(e.target.value as Consumer['type'])}
-                                sx={{ minWidth: 150 }}
+                                sx={{ flex: 1, minWidth: 150 }}
                             >
                                 <MenuItem value="default">Default</MenuItem>
                                 <MenuItem value="lambda">Lambda</MenuItem>
@@ -160,6 +156,14 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                 <MenuItem value="database">Database</MenuItem>
                             </TextField>
                         </Stack>
+
+                        <TextField
+                            label="Description" fullWidth size="small" multiline rows={3}
+                            value={desc} onChange={e => setDesc(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            placeholder="Describe how this consumer processes events..."
+                        />
+
 
                         <Stack direction="row" spacing={3}>
                             <Box sx={{ flex: 1 }}>

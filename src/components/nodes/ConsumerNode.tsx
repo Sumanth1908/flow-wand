@@ -78,7 +78,8 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
             <Paper
                 elevation={selected ? 8 : 2}
                 sx={{
-                    minWidth: 240,
+                    width: 250,              // Fixed width
+                    aspectRatio: '2 / 1.1',  // Maintain ratio
                     bgcolor: 'background.paper',
                     borderRadius: getBorderRadius(),
                     border: consumerType === 'database' ? 0 : 2,
@@ -91,6 +92,8 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                             : (isVisited ? `color-mix(in srgb, ${nodeColor} 40%, ${theme.palette.divider})` : 'divider'),
                     borderStyle: 'solid',
                     overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
                     transition: 'all 0.15s ease',
                     position: 'relative',
                     boxShadow: isEdgeHighlighted
@@ -103,6 +106,7 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                         boxShadow: `0 8px 24px rgba(0,0,0,0.3)`
                     }
                 }}
+
             >
                 <Stack
                     direction="row"
@@ -132,12 +136,34 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                 </Stack>
 
                 {/* Node Body */}
-                <Box sx={{ p: 2, opacity: isVisited && !isActive && !selected ? 0.7 : 1 }}>
-                    <Typography variant="body1" fontWeight="bold" noWrap sx={{ color: 'text.primary', fontSize: 15 }}>
+                <Box sx={{ p: 2, flex: 1, opacity: isVisited && !isActive && !selected ? 0.7 : 1, overflow: 'hidden' }}>
+                    <Typography 
+                        variant="body1" 
+                        fontWeight="bold" 
+                        sx={{ 
+                            color: 'text.primary', 
+                            fontSize: 15,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                        }}
+                    >
                         {data.label}
                     </Typography>
                     {data.description && (
-                        <Typography variant="caption" noWrap sx={{ display: 'block', color: 'text.secondary', mt: 0.5, fontSize: 11 }}>
+                        <Typography 
+                            variant="caption" 
+                            sx={{ 
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                color: 'text.secondary', 
+                                mt: 0.5, 
+                                fontSize: 11 
+                            }}
+                        >
                             {data.description}
                         </Typography>
                     )}

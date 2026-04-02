@@ -108,7 +108,7 @@ const StreamForm: React.FC<StreamFormProps> = ({ color }) => {
                     fullWidth
                     size="small"
                     multiline
-                    rows={2}
+                    rows={3}
                     value={desc}
                     onChange={e => setDesc(e.target.value)}
                     placeholder="Describe this stream…"
