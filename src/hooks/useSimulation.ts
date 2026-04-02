@@ -9,6 +9,7 @@ let _total = 0;
 const INITIAL_SIM: SimulationState = {
     active: false,
     currentStreamId: null,
+    currentConsumerId: null,
     currentEdgeId: null,
     visitedStreamIds: [],
     visitedConsumerIds: [],
@@ -22,39 +23,70 @@ const INITIAL_SIM: SimulationState = {
     steps: [],
 };
 
+
 const buildSimSteps = (startStreamId: string, streams: EventStream[], consumers: Consumer[], events: EventType[], payloads: any[], maxLoops: number, generateEventPayload: (input: any, consumerName: string, events: EventType[]) => any) => {
     const steps: SimulationStep[] = [];
     const log: any[] = [];
     const ts = () => new Date().toISOString();
 
+    /**
+     * Payload fingerprint: stable JSON hash ignoring injected metadata.
+     * Two payloads with the same user-defined fields are considered identical.
+     */
+    const fingerprintPayload = (payload: any): string => {
+        if (!payload || typeof payload !== 'object') return String(payload);
+        const clean = { ...payload };
+        // Exclude metadata we inject — these shouldn't affect cycle detection
+        delete clean._processedBy;
+        delete clean._processedAt;
+        const keys = Object.keys(clean).sort();
+        return JSON.stringify(clean, keys);
+    };
+
+    // Safety cap: prevents runaway loops where payload changes infinitely
+    // (e.g., timestamp appended on every pass). maxLoops * 30 total queue pops.
+    const GLOBAL_STEP_CAP = Math.max(maxLoops * 30, 100);
+
     for (let i = 0; i < payloads.length; i++) {
         const payload = payloads[i];
         const queue = [{ streamId: startStreamId, currentPayload: payload, viaEdge: null as string | null }];
-        const streamVisits = new Map<string, number>();
-        const consumerVisits = new Map<string, number>();
+
+        /**
+         * State-based cycle detection:
+         * Key = "streamId:payloadFingerprint"
+         * A true infinite loop only occurs when the same stream sees the
+         * exact same payload again. A changed payload = different event → allow.
+         */
+        const visitedStates = new Set<string>();
+
+        // Per-consumer state tracking (same principle)
+        const visitedConsumerStates = new Set<string>();
+
+        let globalSteps = 0;
 
         while (queue.length > 0) {
+            if (++globalSteps > GLOBAL_STEP_CAP) {
+                log.push({ time: ts(), type: 'warning', message: `⚠️ Safety cap reached (${GLOBAL_STEP_CAP} steps). Simulation stopped to prevent infinite loop.` });
+                steps.push({ type: 'warning', message: `⚠️ Safety cap reached after ${GLOBAL_STEP_CAP} steps.` });
+                break;
+            }
+
             const item = queue.shift();
             if (!item) continue;
             const { streamId, currentPayload, viaEdge } = item;
 
-            const visitCount = streamVisits.get(streamId) || 0;
-            if (visitCount >= maxLoops) {
+            // ── State-based cycle check ──────────────────────────────────
+            const stateKey = `${streamId}:${fingerprintPayload(currentPayload)}`;
+            if (visitedStates.has(stateKey)) {
                 const stream = streams.find(t => t.id === streamId);
-                const streamName = stream ? stream.name : streamId;
-
-                if (viaEdge) {
-                    steps.push({ type: 'warning', message: '', isCycle: true, id: viaEdge });
-                }
-                steps.push({ type: 'warning', message: `⚠️ Cycle limit reached at stream: ${streamName}`, id: streamId });
-                log.push({
-                    time: ts(),
-                    type: 'warning',
-                    message: `⚠️ Cycle limit reached at stream: ${streamName}`,
-                });
+                const streamName = stream?.name ?? streamId;
+                if (viaEdge) steps.push({ type: 'warning', message: '', isCycle: true, id: viaEdge });
+                steps.push({ type: 'warning', message: `🔁 True cycle detected: stream "${streamName}" received identical payload again. Stopping this path.`, id: streamId });
+                log.push({ time: ts(), type: 'warning', message: `🔁 Cycle: "${streamName}" received the same payload again — infinite loop prevented.` });
                 continue;
             }
-            streamVisits.set(streamId, visitCount + 1);
+            visitedStates.add(stateKey);
+            // ─────────────────────────────────────────────────────────────
 
             const stream = streams.find(t => t.id === streamId);
             if (!stream) continue;
@@ -62,21 +94,17 @@ const buildSimSteps = (startStreamId: string, streams: EventStream[], consumers:
             const evFlag = payloads.length > 1 ? ` [Event ${i + 1}/${payloads.length}]` : '';
 
             steps.push({ type: 'stream', id: streamId, message: `📨 Event arrives at stream: ${stream.name} (${stream.type.toUpperCase()})${evFlag}`, payload: currentPayload });
-            log.push({
-                time: ts(),
-                type: 'stream',
-                id: streamId,
-                message: `📨 Event arrives at stream: ${stream.name}${evFlag}`,
-                payload: currentPayload,
-            });
+            log.push({ time: ts(), type: 'stream', id: streamId, message: `📨 Event arrives at stream: ${stream.name}${evFlag}`, payload: currentPayload });
 
             const consumerList = consumers.filter(j => (j.sources || []).some(s => s.streamId === streamId));
             for (const consumer of consumerList) {
-                const cVisitCount = consumerVisits.get(consumer.id) || 0;
-                if (cVisitCount >= maxLoops) continue;
-                consumerVisits.set(consumer.id, cVisitCount + 1);
 
-                // Provide a high-level summary if we have event tags on the incoming leg
+                // ── Per-consumer state cycle check ───────────────────────
+                const consumerStateKey = `${consumer.id}:${fingerprintPayload(currentPayload)}`;
+                if (visitedConsumerStates.has(consumerStateKey)) continue;
+                visitedConsumerStates.add(consumerStateKey);
+                // ─────────────────────────────────────────────────────────
+
                 const sourceConn = (consumer.sources || []).find(s => s.streamId === streamId);
                 const sourceEventNames = (sourceConn?.eventIds || [])
                     .map(id => events.find(e => e.id === id)?.name)
@@ -84,57 +112,29 @@ const buildSimSteps = (startStreamId: string, streams: EventStream[], consumers:
                 const sourceEvLabel = sourceEventNames.length > 0 ? ` [${sourceEventNames.join(', ')}]` : '';
 
                 const allSinkEventIds = Array.from(new Set((consumer.sinks || []).flatMap(s => s.eventIds || [])));
-                const outboundEvents = allSinkEventIds.map(id => events.find(e => e.id === id)).filter(Boolean) as EventType[];
-
-                const generatedOutput = generateEventPayload(currentPayload, consumer.name, outboundEvents);
+                const outboundEvents  = allSinkEventIds.map(id => events.find(e => e.id === id)).filter(Boolean) as EventType[];
 
                 steps.push({ type: 'edge', from: streamId, to: consumer.id, message: '' });
-                steps.push({ type: 'consumer', id: consumer.id, message: `⚡ Consumer processes: ${consumer.name}${evFlag}${sourceEvLabel}`, payload: currentPayload, outputPayload: generatedOutput });
+                steps.push({ type: 'consumer', id: consumer.id, message: `⚡ Consumer processes: ${consumer.name}${evFlag}${sourceEvLabel}`, payload: currentPayload, outputPayload: currentPayload });
+                log.push({ time: ts(), type: 'consumer', id: consumer.id, message: `⚡ Consumer processes event: ${consumer.name}${evFlag}${sourceEvLabel}`, payload: currentPayload });
 
-                log.push({
-                    time: ts(),
-                    type: 'consumer',
-                    id: consumer.id,
-                    message: `⚡ Consumer processes event: ${consumer.name}${evFlag}${sourceEvLabel}`,
-                    payload: currentPayload,
-                    outputPayload: generatedOutput,
-                });
-
-                // 1. Phase 1: Canonical Transformation
+                // 1. Global Transformation
                 let intermediateData = { ...currentPayload };
                 if (consumer.transformScript) {
                     try {
-                        const transformFn = new Function('payload', `
-                            ${consumer.transformScript}
-                            return payload;
-                        `);
+                        const transformFn = new Function('payload', `${consumer.transformScript}\nreturn payload;`);
                         const result = transformFn({ ...currentPayload });
                         if (result) intermediateData = result;
                     } catch (e) {
-                        console.error("Transformation failed", e);
                         log.push({ time: ts(), type: 'warning', message: `❌ Script error in ${consumer.name}: ${e}` });
                     }
                 }
 
                 steps.push({ type: 'edge', from: streamId, to: consumer.id, message: '' });
-                steps.push({
-                    type: 'consumer',
-                    id: consumer.id,
-                    message: `⚡ Consumer processes: ${consumer.name}${evFlag}${sourceEvLabel}`,
-                    payload: currentPayload,
-                    outputPayload: intermediateData
-                });
+                steps.push({ type: 'consumer', id: consumer.id, message: `⚡ Consumer processes: ${consumer.name}${evFlag}${sourceEvLabel}`, payload: currentPayload, outputPayload: intermediateData });
+                log.push({ time: ts(), type: 'consumer', id: consumer.id, message: `⚡ Consumer processes event: ${consumer.name}${evFlag}${sourceEvLabel}`, payload: currentPayload, outputPayload: intermediateData });
 
-                log.push({
-                    time: ts(),
-                    type: 'consumer',
-                    id: consumer.id,
-                    message: `⚡ Consumer processes event: ${consumer.name}${evFlag}${sourceEvLabel}`,
-                    payload: currentPayload,
-                    outputPayload: intermediateData,
-                });
-
-                // 2. Phase 2: Routing Decisions & Rule-Specific Transformations
+                // 2. Routing
                 const strategy = consumer.routingStrategy || 'broadcast';
                 let dispatchTargets: { sinkId: string, payload: any, eventIds?: string[] }[] = [];
 
@@ -144,11 +144,10 @@ const buildSimSteps = (startStreamId: string, streams: EventStream[], consumers:
                     const rate = consumer.failureRate || 0.05;
                     const isFailure = Math.random() < rate;
                     const sinks = (consumer.sinks || []).map(s => s.streamId);
-
                     if (isFailure && sinks.length > 1) {
                         const dlqSinkId = sinks.find(sId => {
-                            const stream = streams.find(st => st.id === sId);
-                            return stream?.name.toLowerCase().includes('dlq') || stream?.name.toLowerCase().includes('error');
+                            const st = streams.find(s => s.id === sId);
+                            return st?.name.toLowerCase().includes('dlq') || st?.name.toLowerCase().includes('error');
                         }) || sinks[sinks.length - 1];
                         dispatchTargets = [{ sinkId: dlqSinkId, payload: intermediateData }];
                         log.push({ time: ts(), type: 'warning', message: `⚠️ Simulated failure! Routing to DLQ.` });
@@ -159,73 +158,49 @@ const buildSimSteps = (startStreamId: string, streams: EventStream[], consumers:
                     const rules = consumer.routingRules || [];
                     if (rules.length > 0) {
                         rules.forEach(rule => {
-                            // 1. Filter Check: Source Stream
                             if (rule.sourceStreamId && rule.sourceStreamId !== streamId) return;
-
                             try {
                                 const evalFn = new Function('payload', `return ${rule.condition}`);
                                 if (evalFn(intermediateData)) {
                                     let rulePayload = { ...intermediateData };
                                     if (rule.transformScript) {
                                         try {
-                                            const ruleTransformFn = new Function('payload', `
-                                                ${rule.transformScript}
-                                                return payload;
-                                            `);
+                                            const ruleTransformFn = new Function('payload', `${rule.transformScript}\nreturn payload;`);
                                             const res = ruleTransformFn({ ...intermediateData });
                                             if (res) rulePayload = res;
                                         } catch (te) {
                                             log.push({ time: ts(), type: 'warning', message: `❌ Rule transform error: ${te}` });
                                         }
                                     }
-
-                                    // Use explicit outputEventId if set, otherwise fallback to the rule's eventIds array
                                     const effectiveOutEvents = rule.outputEventId ? [rule.outputEventId] : (rule.eventIds || []);
-
-                                    dispatchTargets.push({
-                                        sinkId: rule.sinkStreamId,
-                                        payload: rulePayload,
-                                        eventIds: effectiveOutEvents.length > 0 ? effectiveOutEvents : undefined
-                                    });
+                                    dispatchTargets.push({ sinkId: rule.sinkStreamId, payload: rulePayload, eventIds: effectiveOutEvents.length > 0 ? effectiveOutEvents : undefined });
                                 }
                             } catch (e) {
-                                console.warn("Rule evaluation failed", e);
+                                console.warn('Rule evaluation failed', e);
                             }
                         });
                     }
-
                     if (dispatchTargets.length === 0 && (consumer.sinks || []).length > 0) {
                         log.push({ time: ts(), type: 'info', message: `ℹ️ No conditions met. Event dropped by ${consumer.name}.` });
                         steps.push({ type: 'warning', message: `Event dropped: No conditions met at ${consumer.name}`, id: consumer.id });
                     }
                 }
 
-                // 3. Phase 3: Sink-Specific Emission (Mapping to Schemas)
+                // 3. Emit to sinks
                 for (const target of dispatchTargets) {
                     const { sinkId, payload: dataToEmit, eventIds: ruleEventIds } = target;
                     steps.push({ type: 'edge', from: consumer.id, to: sinkId, message: '' });
 
-                    const connection = consumer.sinks?.find(s => s.streamId === sinkId);
+                    const connection        = consumer.sinks?.find(s => s.streamId === sinkId);
                     const effectiveEventIds = ruleEventIds || connection?.eventIds || [];
+                    const sinkEvents        = effectiveEventIds.map(id => events.find(e => e.id === id)).filter(Boolean) as EventType[];
+                    const finalSinkPayload  = generateEventPayload(dataToEmit, consumer.name, sinkEvents);
 
-                    const sinkEvents = effectiveEventIds
-                        .map(id => events.find(e => e.id === id))
-                        .filter(Boolean) as EventType[];
-
-                    const finalSinkPayload = generateEventPayload(dataToEmit, consumer.name, sinkEvents);
-
-                    const sinkStream = streams.find(t => t.id === sinkId);
-                    const sinkEventNames = sinkEvents.map(e => e.name);
-                    const sinkEvLabel = sinkEventNames.length > 0 ? ` [${sinkEventNames.join(', ')}]` : '';
+                    const sinkStream  = streams.find(t => t.id === sinkId);
+                    const sinkEvLabel = sinkEvents.length > 0 ? ` [${sinkEvents.map(e => e.name).join(', ')}]` : '';
 
                     if (sinkStream) {
-                        log.push({
-                            time: ts(),
-                            type: 'stream',
-                            id: sinkId,
-                            message: `📤 Event written to ${sinkStream.name}${evFlag}${sinkEvLabel}`,
-                            payload: finalSinkPayload,
-                        });
+                        log.push({ time: ts(), type: 'stream', id: sinkId, message: `📤 Event written to ${sinkStream.name}${evFlag}${sinkEvLabel}`, payload: finalSinkPayload });
                     }
                     queue.push({ streamId: sinkId, currentPayload: finalSinkPayload, viaEdge: `${consumer.id}->${sinkId}` });
                 }
@@ -283,35 +258,28 @@ export const buildSimulationActions = (
         const updates: Partial<SimulationState> = { currentStep: sim.currentStep + 1 };
 
         if (step.type === 'stream' && step.id) {
-            updates.currentEdgeId = null;
-            updates.currentStreamId = step.id;
+            updates.currentEdgeId    = null;
+            updates.currentConsumerId = null;
+            updates.currentStreamId  = step.id;
             updates.visitedStreamIds = [...sim.visitedStreamIds, step.id];
             updates.eventLog = [
                 ...sim.eventLog,
-                {
-                    time: new Date().toISOString(),
-                    type: 'stream',
-                    message: step.message,
-                    payload: step.payload,
-                },
+                { time: new Date().toISOString(), type: 'stream', message: step.message, payload: step.payload },
             ];
         } else if (step.type === 'consumer' && step.id) {
-            updates.currentEdgeId = null;
+            updates.currentEdgeId     = null;
+            updates.currentConsumerId = step.id;
+            updates.currentStreamId   = null;
             updates.visitedConsumerIds = [...sim.visitedConsumerIds, step.id];
             updates.eventLog = [
                 ...sim.eventLog,
-                {
-                    time: new Date().toISOString(),
-                    type: 'consumer',
-                    message: step.message,
-                    payload: step.payload,
-                    outputPayload: step.outputPayload,
-                },
+                { time: new Date().toISOString(), type: 'consumer', message: step.message, payload: step.payload, outputPayload: step.outputPayload },
             ];
         } else if (step.type === 'edge' && step.from && step.to) {
             const edgeId = `${step.from}->${step.to}`;
             updates.currentEdgeId = edgeId;
             updates.activeEdgeIds = [...sim.activeEdgeIds, edgeId];
+
         } else if (step.type === 'warning') {
             if (step.isCycle && step.id) {
                 updates.cycleEdges = [...sim.cycleEdges, step.id];

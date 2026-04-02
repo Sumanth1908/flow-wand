@@ -85,6 +85,7 @@ export interface SimulationState {
     totalSteps: number;
     steps: SimulationStep[];
     currentStreamId: string | null;
+    currentConsumerId: string | null;   // which consumer is being processed right now
     currentEdgeId: string | null;
     visitedStreamIds: string[];
     visitedConsumerIds: string[];

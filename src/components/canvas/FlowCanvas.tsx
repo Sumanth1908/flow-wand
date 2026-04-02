@@ -1,7 +1,8 @@
 /**
  * components/canvas/FlowCanvas.tsx
  */
-import React, { useMemo, useEffect, useState, useRef } from 'react';
+import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
+
 import {
     ReactFlow, MiniMap, Background,
     BackgroundVariant, useNodesState, useEdgesState, Panel,
@@ -23,88 +24,126 @@ const FlowCanvasInner: React.FC = () => {
     const theme = useTheme();
     const { fitView, zoomIn, zoomOut } = useReactFlow();
 
-    const streams = useStore(s => s.streams);
-    const consumers = useStore(s => s.consumers);
-    const flows = useStore(s => s.flows);
-    const events = useStore(s => s.events);
-    const activeFlowId = useStore(s => s.activeFlowId);
-    const simulation = useStore(s => s.simulation);
-    const traceMode = useStore(s => s.traceMode);
-
-    // Global style configs
-    const edgeStyle = useStore(s => s.edgeStyle);
-    const edgeShape = useStore(s => s.edgeShape);
-    const layoutDirection = useStore(s => s.layoutDirection);
-    const stopSimulation = useStore(s => s.stopSimulation);
-    const clearSimulation = useStore(s => s.clearSimulation);
-    const openModal = useStore(s => s.openModal);
-    const nodePositions = useStore(s => s.nodePositions);
+    const streams             = useStore(s => s.streams);
+    const consumers           = useStore(s => s.consumers);
+    const flows               = useStore(s => s.flows);
+    const events              = useStore(s => s.events);
+    const activeFlowId        = useStore(s => s.activeFlowId);
+    const simulation          = useStore(s => s.simulation);
+    const traceMode           = useStore(s => s.traceMode);
+    const edgeStyle           = useStore(s => s.edgeStyle);
+    const edgeShape           = useStore(s => s.edgeShape);
+    const layoutDirection     = useStore(s => s.layoutDirection);
+    const stopSimulation      = useStore(s => s.stopSimulation);
+    const clearSimulation     = useStore(s => s.clearSimulation);
+    const openModal           = useStore(s => s.openModal);
+    const nodePositions       = useStore(s => s.nodePositions);
     const updateNodePositions = useStore(s => s.updateNodePositions);
-    const activeProjectId = useStore(s => s.activeProjectId);
-    const edgeRoutings = useStore(s => s.edgeRoutings);
-    const hoveredEdgeId = useStore(s => s.hoveredEdgeId);
+    const activeProjectId     = useStore(s => s.activeProjectId);
+    const edgeRoutings        = useStore(s => s.edgeRoutings);
+    const hoveredEdgeId       = useStore(s => s.hoveredEdgeId);
 
     const { nodes: initialNodes, edges: initialEdges } = useMemo(
         () => buildGraph({ streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection, nodePositions, edgeRoutings }),
-        // Don't re-run full graph build just because edge routing changes
         [streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection, nodePositions]
     );
 
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes as Node[]);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges as Edge[]);
-    const [isLocked, setIsLocked] = useState(false);
-
-    const prevLayoutRef = useRef(layoutDirection);
-    const prevNodePositionsRef = useRef(nodePositions);
-    const prevProjIdRef = useRef(activeProjectId);
-    const prevNodeCountRef = useRef(0);
+    const [isLocked, setIsLocked]          = useState(false);
 
     const fitViewOptions: FitViewOptions = { padding: 0.3, maxZoom: 1.5 };
-    const proOptions: ProOptions = { hideAttribution: true };
+    const proOptions: ProOptions         = { hideAttribution: true };
     const canvasRef = useRef<HTMLDivElement>(null);
 
-    // Uplift hovered edge to front by bumping its zIndex
+    const prevLayoutRef         = useRef(layoutDirection);
+    const prevNodePositionsRef  = useRef(nodePositions);
+    const prevProjIdRef         = useRef(activeProjectId);
+    const prevNodeCountRef      = useRef(0);
+
+    // ── Trace mode: elevate hovered edge ─────────────────────────
     useEffect(() => {
         setEdges(eds => eds.map(e => ({ ...e, zIndex: e.id === hoveredEdgeId ? 1000 : 0 })));
     }, [hoveredEdgeId, setEdges]);
 
-    // Sync nodes/edges when props change
+    // ── Trace mode: progressive reveal ───────────────────────────
+    // Computes opacity/glow for a node based on current simulation state.
+    // Integrated into the sync effect below so they never race each other.
+    const applyTraceToNodes = useCallback((nds: Node[]): Node[] => {
+        if (!traceMode || !simulation.active) {
+            return nds.map(n => ({ ...n, style: { ...n.style, opacity: undefined, filter: undefined } }));
+        }
+        const visitedStreams   = new Set(simulation.visitedStreamIds   || []);
+        const visitedConsumers = new Set(simulation.visitedConsumerIds || []);
+        const { currentStreamId, currentConsumerId } = simulation;
+
+        return nds.map(n => {
+            const isActive  = n.id === currentStreamId || n.id === currentConsumerId;
+            const isVisited = visitedStreams.has(n.id) || visitedConsumers.has(n.id);
+
+            let opacity = 0.35;   // unvisited — visible but clearly not active
+            let filter  = '';
+            if (isActive) {
+                opacity = 1;
+                const glowColor = n.type === 'stream' ? 'rgba(99,102,241,0.9)' : 'rgba(245,158,11,0.9)';
+                filter = `drop-shadow(0 0 14px ${glowColor}) drop-shadow(0 0 6px ${glowColor})`;
+            } else if (isVisited) {
+                opacity = 0.90;   // visited — nearly full, just slightly de-emphasized
+            }
+            return { ...n, style: { ...n.style, opacity, filter, transition: 'opacity 0.25s ease, filter 0.25s ease' } };
+        });
+    }, [traceMode, simulation]);
+
+    const applyTraceToEdges = useCallback((eds: Edge[]): Edge[] => {
+        if (!traceMode || !simulation.active) {
+            return eds.map(e => ({ ...e, hidden: false, style: { ...e.style, opacity: undefined } }));
+        }
+        const activeEdges = new Set(simulation.activeEdgeIds || []);
+        return eds.map(e => {
+            if (e.id === simulation.currentEdgeId)   return { ...e, hidden: false, style: { ...e.style, opacity: 1,    transition: 'opacity 0.25s ease' } };
+            if (activeEdges.has(e.id))               return { ...e, hidden: false, style: { ...e.style, opacity: 0.45, transition: 'opacity 0.25s ease' } };
+            return { ...e, hidden: false, style: { ...e.style, opacity: 0.1 } };  // faint but not fully hidden
+        });
+
+    }, [traceMode, simulation]);
+
+    // Sync nodes/edges when structure OR simulation state changes
+    // Trace styles are applied in the same pass to avoid any ordering issues.
     useEffect(() => {
-        const layoutChanged = prevLayoutRef.current !== layoutDirection;
+        const layoutChanged  = prevLayoutRef.current !== layoutDirection;
         const resetTriggered = Object.keys(nodePositions).length === 0 && Object.keys(prevNodePositionsRef.current).length > 0;
 
         if (layoutChanged || resetTriggered) {
-            setNodes(initialNodes as Node[]);
-            setTimeout(() => {
-                fitView({ ...fitViewOptions, duration: 400 });
-            }, 50);
+            setNodes(applyTraceToNodes(initialNodes as Node[]));
+            setTimeout(() => fitView({ ...fitViewOptions, duration: 400 }), 50);
         } else {
             setNodes(current => {
                 const posMap = new Map(current.map(n => [n.id, n.position]));
-                return (initialNodes as Node[]).map(n => ({
+                const merged = (initialNodes as Node[]).map(n => ({
                     ...n,
-                    position: posMap.get(n.id) ?? n.position
+                    position: posMap.get(n.id) ?? n.position,
                 }));
+                return applyTraceToNodes(merged);
             });
         }
-        setEdges(initialEdges as Edge[]);
+        setEdges(applyTraceToEdges(initialEdges as Edge[]));
 
-        prevLayoutRef.current = layoutDirection;
+        prevLayoutRef.current        = layoutDirection;
         prevNodePositionsRef.current = nodePositions;
-    }, [initialNodes, initialEdges, layoutDirection, nodePositions, setNodes, setEdges, fitView]);
+    }, [initialNodes, initialEdges, layoutDirection, nodePositions, setNodes, setEdges, fitView, applyTraceToNodes, applyTraceToEdges]);
 
-    // fitView on project load or major structure change
+
+
+    // fitView on project switch or node count change
     useEffect(() => {
-        const projChanged = prevProjIdRef.current !== activeProjectId;
+        const projChanged  = prevProjIdRef.current !== activeProjectId;
         const countChanged = nodes.length !== prevNodeCountRef.current;
 
         if (nodes.length > 0 && (projChanged || countChanged)) {
-            const timer = setTimeout(() => {
-                fitView({ ...fitViewOptions, duration: 800 });
-            }, 150);
-            prevProjIdRef.current = activeProjectId;
-            prevNodeCountRef.current = nodes.length;
-            return () => clearTimeout(timer);
+            const t = setTimeout(() => fitView({ ...fitViewOptions, duration: 800 }), 150);
+            prevProjIdRef.current      = activeProjectId;
+            prevNodeCountRef.current   = nodes.length;
+            return () => clearTimeout(t);
         }
     }, [nodes.length, activeProjectId, fitView]);
 
@@ -122,8 +161,7 @@ const FlowCanvasInner: React.FC = () => {
         updateNodePositions({ [node.id]: node.position });
     };
 
-    const hasActiveSettings = (simulation.speed !== 1000 || traceMode || edgeStyle !== 'solid' || edgeShape !== 'circle');
-
+    const hasActiveSettings = simulation.speed !== 1000 || traceMode || edgeStyle !== 'solid' || edgeShape !== 'circle';
     const activeFlow = activeFlowId ? flows.find(f => f.id === activeFlowId) : null;
 
     return (
@@ -150,8 +188,6 @@ const FlowCanvasInner: React.FC = () => {
                 snapGrid={[20, 20]}
                 style={{ background: 'var(--bg-primary)' }}
             >
-
-
                 <MiniMap
                     position="bottom-right"
                     nodeColor={node => node.type === 'stream' ? '#6366f1' : node.type === 'consumer' ? '#f59e0b' : '#64748b'}
@@ -172,7 +208,7 @@ const FlowCanvasInner: React.FC = () => {
                             <IconButton size="small" onClick={() => fitView({ padding: 0.3, duration: 800 })} sx={{ borderRadius: 1.5, mb: 0.5 }}><Maximize size={18} /></IconButton>
                         </Tooltip>
                         <Divider sx={{ my: 0.5 }} />
-                        <Tooltip title={isLocked ? "Unlock Canvas" : "Lock Canvas"} placement="right">
+                        <Tooltip title={isLocked ? 'Unlock Canvas' : 'Lock Canvas'} placement="right">
                             <IconButton size="small" onClick={() => setIsLocked(!isLocked)} sx={{ borderRadius: 1.5, color: isLocked ? 'warning.main' : 'text.secondary' }}>
                                 {isLocked ? <Lock size={18} /> : <Unlock size={18} />}
                             </IconButton>
@@ -187,11 +223,9 @@ const FlowCanvasInner: React.FC = () => {
                         <Box sx={{
                             display: 'flex', alignItems: 'center', gap: 1.5,
                             px: 2, py: 1, borderRadius: 2, border: '1px solid',
-                            borderColor: 'divider',
-                            bgcolor: 'background.paper',
-                            color: 'text.primary',
+                            borderColor: 'divider', bgcolor: 'background.paper',
                             backdropFilter: 'blur(8px)',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                         }}>
                             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'text.secondary', opacity: 0.5 }} />
                             <Typography variant="body2" fontWeight="bold">Viewing: {activeFlow.name}</Typography>
@@ -201,7 +235,6 @@ const FlowCanvasInner: React.FC = () => {
 
                 <Panel position="bottom-center" style={{ marginBottom: 16, zIndex: 1000 }}>
                     <Paper elevation={4} sx={{ display: 'flex', alignItems: 'center', p: 0.5, borderRadius: 3, border: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-
                         <Button
                             startIcon={<Send size={16} />}
                             onClick={() => openModal('fireEvent')}
