@@ -457,11 +457,69 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                                         }}
                                                         variant="outlined"
                                                     />
-                                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: 9 }}>
-                                                        Evaluates as <code>return ({rule.condition || '...'})</code>. Available: <code>payload</code>. 
-                                                        Use <code>&&</code>, <code>||</code> for multiple conditions.
+                                                    
+                                                    {/* Schema Helper Chips */}
+                                                    {(() => {
+                                                        const ev = events.find(e => e.id === rule.sourceEventId);
+                                                        if (!ev) {
+                                                            return (
+                                                                <Box sx={{ mt: 1, p: 0.8, borderRadius: 1.5, bgcolor: 'action.hover', border: '1px dashed', borderColor: 'divider' }}>
+                                                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: 9 }}>
+                                                                        💡 Select an <b>Event TYPE</b> above to see discoverable fields here.
+                                                                    </Typography>
+                                                                </Box>
+                                                            );
+                                                        }
+                                                        let fields: string[] = [];
+                                                        try { fields = Object.keys(JSON.parse(ev.schema)); } catch(e) {}
+                                                        if (fields.length === 0) {
+                                                            return (
+                                                                <Box sx={{ mt: 1, p: 0.8, borderRadius: 1.5, bgcolor: 'action.hover', border: '1px dashed', borderColor: 'divider' }}>
+                                                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: 9 }}>
+                                                                        ℹ️ This event has no schema defined. You can still use <code>payload</code>.
+                                                                    </Typography>
+                                                                </Box>
+                                                            );
+                                                        }
+                                                        
+                                                        return (
+                                                            <Box sx={{ mt: 1 }}>
+                                                                <Typography variant="caption" sx={{ fontSize: 10, fontWeight: 'bold', color: 'text.secondary', display: 'block', mb: 0.5 }}>
+                                                                    QUICK FIELDS (Click to add):
+                                                                </Typography>
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                                                                    {fields.map(f => (
+                                                                        <Chip 
+                                                                            key={f} 
+                                                                            label={`payload.${f}`} 
+                                                                            size="small" 
+                                                                            onClick={() => {
+                                                                                const newVal = rule.condition ? `${rule.condition} && payload.${f} === ""` : `payload.${f} === ""`;
+                                                                                updateRule(rule.id, { condition: newVal });
+                                                                            }}
+                                                                            sx={{ 
+                                                                                height: 18, 
+                                                                                fontSize: 10, 
+                                                                                fontFamily: 'monospace', 
+                                                                                bgcolor: 'rgba(99, 102, 241, 0.08)',
+                                                                                color: 'primary.main',
+                                                                                border: '1px solid rgba(99, 102, 241, 0.2)',
+                                                                                cursor: 'pointer',
+                                                                                '&:hover': { bgcolor: 'rgba(99, 102, 241, 0.15)' }
+                                                                            }} 
+                                                                        />
+                                                                    ))}
+                                                                </Box>
+                                                            </Box>
+                                                        );
+                                                    })()}
+
+                                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block', fontSize: 10, lineHeight: 1.4, opacity: 0.8 }}>
+                                                        The <b>payload</b> refers to the entire incoming event. We use <code>payload.field</code> to check specific values (e.g., <code>payload.amount &gt; 10</code>).
                                                     </Typography>
                                                 </Box>
+
+
 
                                             </Stack>
 
