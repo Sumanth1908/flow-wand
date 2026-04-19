@@ -1,8 +1,8 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { motion } from 'framer-motion';
-import { Zap, Server, Database, Braces } from 'lucide-react';
-import { Paper, Box, Stack, Typography, useTheme } from '@mui/material';
+import { Zap, Server, Database, Braces, Crosshair } from 'lucide-react';
+import { Paper, Box, Stack, Typography, useTheme, IconButton, Tooltip } from '@mui/material';
 import useStore from '../../store/useStore';
 import { ConsumerType } from '../../types';
 
@@ -22,10 +22,15 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
     const theme = useTheme();
     const layoutDirection = useStore(s => s.layoutDirection);
     const hoveredEdgeId = useStore(s => s.hoveredEdgeId);
+    const focusedConsumerId = useStore(s => s.focusedConsumerId);
+    const setFocusedConsumer = useStore(s => s.setFocusedConsumer);
+    const [hovered, setHovered] = useState(false);
+
     const targetPos = layoutDirection === 'TB' ? Position.Top : Position.Left;
     const sourcePos = layoutDirection === 'TB' ? Position.Bottom : Position.Right;
     const isActive = data.simulationState === 'active';
     const isVisited = data.simulationState === 'visited';
+    const isFocusPrimary = focusedConsumerId === id;
 
     // Highlight if any hovered edge connects to this node
     const isEdgeHighlighted = !!hoveredEdgeId?.includes(id);
@@ -58,16 +63,36 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
 
     return (
         <motion.div
-            animate={
-                isActive
-                    ? {
-                        scale: [1, 1.02, 1],
-                    }
-                    : {}
-            }
+            animate={isActive ? { scale: [1, 1.02, 1] } : {}}
             transition={isActive ? { duration: 1, repeat: Infinity } : {}}
             style={{ position: 'relative' }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
         >
+            {/* Focus button — visible on hover */}
+            {(hovered || isFocusPrimary) && (
+                <Tooltip title={isFocusPrimary ? 'Exit Focus Mode' : 'Focus on this consumer'} placement="top">
+                    <IconButton
+                        size="small"
+                        className="nodrag nopan"
+                        onClick={e => { e.stopPropagation(); setFocusedConsumer(isFocusPrimary ? null : id); }}
+                        onMouseDown={e => e.stopPropagation()}
+                        sx={{
+                            position: 'absolute', top: -14, right: -14, zIndex: 20,
+                            width: 26, height: 26,
+                            bgcolor: isFocusPrimary ? 'secondary.main' : 'background.paper',
+                            color: isFocusPrimary ? 'secondary.contrastText' : 'secondary.main',
+                            border: '2px solid',
+                            borderColor: 'secondary.main',
+                            boxShadow: `0 0 10px ${theme.palette.secondary.main}66`,
+                            '&:hover': { bgcolor: 'secondary.main', color: 'secondary.contrastText' },
+                            transition: 'all 0.15s ease',
+                        }}
+                    >
+                        <Crosshair size={13} />
+                    </IconButton>
+                </Tooltip>
+            )}
             {/* Indigo: LEFT side — receives data forward (stream → consumer) */}
             <Handle id="src-in" type="target" position={targetPos}
                 style={{ width: 10, height: 10, background: '#6366f1', border: `2px solid ${theme.palette.background.paper}`, zIndex: 10 }} />
@@ -148,19 +173,19 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                 </Stack>
 
                 {/* Node Body */}
-                <Box sx={{ 
+                <Box sx={{
                     p: 2.5,  // Increased padding
-                    flex: 1, 
-                    display: 'flex', 
+                    flex: 1,
+                    display: 'flex',
                     flexDirection: 'column',
                     gap: 1.5, // Better spacing between elements
-                    opacity: isVisited && !isActive && !selected ? 0.7 : 1, 
+                    opacity: isVisited && !isActive && !selected ? 0.7 : 1,
                 }}>
-                    <Typography 
-                        variant="body1" 
+                    <Typography
+                        variant="body1"
                         fontWeight="900" // More punchy
-                        sx={{ 
-                            color: 'text.primary', 
+                        sx={{
+                            color: 'text.primary',
                             fontSize: 16, // Slightly larger
                             lineHeight: 1.2,
                             letterSpacing: -0.2
@@ -168,16 +193,16 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                     >
                         {data.label}
                     </Typography>
-                    
+
                     {data.description && (
-                        <Typography 
-                            variant="caption" 
-                            sx={{ 
+                        <Typography
+                            variant="caption"
+                            sx={{
                                 display: '-webkit-box',
                                 WebkitLineClamp: 3, // Approx 20-25 words
                                 WebkitBoxOrient: 'vertical',
                                 overflow: 'hidden',
-                                color: 'text.secondary', 
+                                color: 'text.secondary',
                                 fontSize: 12,
                                 lineHeight: 1.5,
                                 fontWeight: 500

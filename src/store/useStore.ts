@@ -68,6 +68,8 @@ const useStore = create<StoreState>((set, get) => {
         nodePositions: {},
         edgeRoutings: {},
         hoveredEdgeId: null,
+        focusedConsumerId: null,
+        canvasSearchQuery: '',
 
         // ── App init ─────────────────────────────────────────────
         init: () => {
@@ -178,6 +180,8 @@ const useStore = create<StoreState>((set, get) => {
         },
 
         setHoveredEdge: (id) => set({ hoveredEdgeId: id }),
+        setFocusedConsumer: (id) => set({ focusedConsumerId: id }),
+        setCanvasSearchQuery: (query) => set({ canvasSearchQuery: query }),
 
         resetLayout: () => {
             set({ nodePositions: {}, edgeRoutings: {} });

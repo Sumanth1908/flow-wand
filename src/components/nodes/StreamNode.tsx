@@ -117,19 +117,19 @@ const StreamNode = memo(({ id, data, selected }: NodeProps<Node<StreamNodeData>>
                 </Stack>
 
                 {/* Node Body */}
-                <Box sx={{ 
-                    p: 2.5, 
-                    flex: 1, 
-                    display: 'flex', 
+                <Box sx={{
+                    p: 2.5,
+                    flex: 1,
+                    display: 'flex',
                     flexDirection: 'column',
                     gap: 1.2,
-                    opacity: isVisited && !isActive && !selected ? 0.7 : 1, 
+                    opacity: isVisited && !isActive && !selected ? 0.7 : 1,
                 }}>
-                    <Typography 
-                        variant="body1" 
-                        fontWeight="900" 
-                        sx={{ 
-                            color: 'text.primary', 
+                    <Typography
+                        variant="body1"
+                        fontWeight="900"
+                        sx={{
+                            color: 'text.primary',
                             fontSize: 16,
                             lineHeight: 1.2,
                             letterSpacing: -0.2
@@ -138,14 +138,14 @@ const StreamNode = memo(({ id, data, selected }: NodeProps<Node<StreamNodeData>>
                         {data.label}
                     </Typography>
                     {data.description && (
-                        <Typography 
-                            variant="caption" 
-                            sx={{ 
+                        <Typography
+                            variant="caption"
+                            sx={{
                                 display: '-webkit-box',
                                 WebkitLineClamp: 3, // Roughly 20 words
                                 WebkitBoxOrient: 'vertical',
                                 overflow: 'hidden',
-                                color: 'text.secondary', 
+                                color: 'text.secondary',
                                 fontSize: 12,
                                 lineHeight: 1.5,
                                 fontWeight: 500

@@ -128,6 +128,8 @@ export interface StoreState {
     nodePositions: Record<string, { x: number, y: number }>;
     edgeRoutings: Record<string, { cx: number, cy: number }>;
     hoveredEdgeId: string | null;
+    focusedConsumerId: string | null;
+    canvasSearchQuery: string;
 
     init: () => void;
     toggleTheme: () => void;
@@ -139,6 +141,8 @@ export interface StoreState {
     updateNodePositions: (positions: Record<string, { x: number, y: number }>) => void;
     updateEdgeRouting: (edgeId: string, point: { cx: number, cy: number } | null) => void;
     setHoveredEdge: (id: string | null) => void;
+    setFocusedConsumer: (id: string | null) => void;
+    setCanvasSearchQuery: (query: string) => void;
     resetLayout: () => void;
     exportProject: () => void;
     importProject: (file: File) => Promise<Project>;

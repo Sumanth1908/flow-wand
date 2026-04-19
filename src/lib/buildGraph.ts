@@ -46,14 +46,14 @@ const getLayoutedElements = (
     const g = new dagre.graphlib.Graph({ multigraph: false });
     g.setDefaultEdgeLabel(() => ({}));
     g.setGraph({
-        rankdir:  direction,
-        nodesep:  NODE_SEP,
-        ranksep:  RANK_SEP,
-        marginx:  40,
-        marginy:  40,
-        align:    'UL',    // Upper-Left alignment within each rank — reduces gaps
+        rankdir: direction,
+        nodesep: NODE_SEP,
+        ranksep: RANK_SEP,
+        marginx: 40,
+        marginy: 40,
+        align: 'UL',    // Upper-Left alignment within each rank — reduces gaps
         acyclicer: 'greedy', // Handle feedback edges (cycle) gracefully
-        ranker:   'network-simplex', // Best quality rank assignment
+        ranker: 'network-simplex', // Best quality rank assignment
     });
 
     nodes.forEach(n => g.setNode(n.id, { width: NODE_W, height: NODE_H }));
@@ -67,7 +67,7 @@ const getLayoutedElements = (
     dagre.layout(g);
 
     nodes.forEach(n => {
-        n.targetPosition = isHorizontal ? Position.Left  : Position.Top;
+        n.targetPosition = isHorizontal ? Position.Left : Position.Top;
         n.sourcePosition = isHorizontal ? Position.Right : Position.Bottom;
 
         if (nodePositions?.[n.id]) {
@@ -116,11 +116,11 @@ export const buildGraph = ({
     const visibleStreamIds = new Set<string>();
     visibleConsumers.forEach(c => {
         (c.sources || []).forEach(s => visibleStreamIds.add(s.streamId));
-        (c.sinks   || []).forEach(s => visibleStreamIds.add(s.streamId));
+        (c.sinks || []).forEach(s => visibleStreamIds.add(s.streamId));
     });
     if (!activeFlowId) streams.forEach(t => visibleStreamIds.add(t.id));
 
-    const dlqStreamIds  = new Set(streams.filter(s => s.isDLQ).map(s => s.id));
+    const dlqStreamIds = new Set(streams.filter(s => s.isDLQ).map(s => s.id));
     const visibleStreams = streams.filter(t => visibleStreamIds.has(t.id) && !dlqStreamIds.has(t.id));
 
     // Stream nodes
@@ -141,7 +141,7 @@ export const buildGraph = ({
         data: {
             label: j.name, description: j.description, type: j.type,
             sourceCount: (j.sources || []).length,
-            sinkCount:   (j.sinks   || []).length,
+            sinkCount: (j.sinks || []).length,
             simulationState: consumerSimState(j.id, simulation),
             sourceEvents: Array.from(new Set((j.sources || []).flatMap(s => s.eventIds))).map(eid => {
                 const ev = events.find(e => e.id === eid); return ev?.name ?? null;
@@ -170,12 +170,12 @@ export const buildGraph = ({
         mergeConnections(consumer.sources || []).forEach(source => {
             const streamId = source.streamId;
             if (!visibleStreamIds.has(streamId)) return;
-            const edgeId      = `${streamId}->${consumer.id}`;
+            const edgeId = `${streamId}->${consumer.id}`;
             const isSimActive = simulation?.activeEdgeIds?.includes(edgeId);
-            const isCurrent   = simulation?.currentEdgeId === edgeId;
+            const isCurrent = simulation?.currentEdgeId === edgeId;
             let simState = 'idle';
             if (isSimActive) simState = (traceMode && !isCurrent) ? 'visited' : 'active';
-            const isCycle   = simulation?.cycleEdges?.includes(edgeId);
+            const isCycle = simulation?.cycleEdges?.includes(edgeId);
             const edgeColor = isCycle ? '#ef4444' : (isSimActive ? '#6366f1' : '#b4c4d4');
 
             edges.push({
@@ -197,12 +197,12 @@ export const buildGraph = ({
         mergeConnections(consumer.sinks || []).forEach(sink => {
             const streamId = sink.streamId;
             if (!visibleStreamIds.has(streamId) || dlqStreamIds.has(streamId)) return;
-            const edgeId      = `${consumer.id}->${streamId}`;
+            const edgeId = `${consumer.id}->${streamId}`;
             const isSimActive = simulation?.activeEdgeIds?.includes(edgeId);
-            const isCurrent   = simulation?.currentEdgeId === edgeId;
+            const isCurrent = simulation?.currentEdgeId === edgeId;
             let simState = 'idle';
             if (isSimActive) simState = (traceMode && !isCurrent) ? 'visited' : 'active';
-            const isCycle   = simulation?.cycleEdges?.includes(edgeId);
+            const isCycle = simulation?.cycleEdges?.includes(edgeId);
             const edgeColor = isCycle ? '#ef4444' : (isSimActive ? '#6366f1' : '#b4c4d4');
 
             edges.push({
