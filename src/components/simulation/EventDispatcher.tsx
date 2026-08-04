@@ -1,10 +1,12 @@
 /**
  * components/simulation/EventDispatcher.tsx
  */
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Play, TriangleAlert, RotateCcw } from 'lucide-react';
 import { Box, Typography, Stack, Button, IconButton, Select, MenuItem, TextField, Divider } from '@mui/material';
 import useStore from '../../store/useStore';
+import { generateExampleFromSchema } from '../../lib/eventSchema';
+import { JsonValue } from '../../types';
 
 const DEFAULT_PAYLOAD = JSON.stringify({ key: 'value', timestamp: '{{now}}' }, null, 2);
 
@@ -21,71 +23,52 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
     const simulation = useStore(s => s.simulation);
     const editingItem = useStore(s => s.editingItem);
 
-    const [selectedStreamId, setSelectedStreamId] = useState<string>(
+    const initialStreamId = (
         (typeof editingItem === 'string' ? editingItem : '') ||
         (streams.length > 0 ? streams[0].id : '')
     );
-    const [selectedEventId, setSelectedEventId] = useState('');
-    const [payload, setPayload] = useState(DEFAULT_PAYLOAD);
+    const eventIdsForStream = (streamId: string) => {
+        const ids = new Set<string>();
+        consumers.forEach(consumer => consumer.sources
+            .filter(source => source.streamId === streamId)
+            .forEach(source => source.eventIds.forEach(id => ids.add(id))));
+        return ids;
+    };
+    const initialEvent = events.find(event => eventIdsForStream(initialStreamId).has(event.id));
+
+    const [selectedStreamId, setSelectedStreamId] = useState<string>(initialStreamId);
+    const [selectedEventId, setSelectedEventId] = useState(initialEvent?.id ?? '');
+    const [payload, setPayload] = useState(
+        initialEvent ? JSON.stringify(generateExampleFromSchema(initialEvent), null, 2) : DEFAULT_PAYLOAD
+    );
     const [payloadError, setPayloadError] = useState('');
 
 
     const selectableStreams = streams;
 
-    // Load payload from event schema when selected
-    useEffect(() => {
-        if (selectedEventId) {
-            const event = events.find(e => e.id === selectedEventId);
-            if (event && event.schema) {
-                try {
-                    // Try to prettify the schema for the editor
-                    const pretty = JSON.stringify(JSON.parse(event.schema), null, 2);
-                    setPayload(pretty);
-                    setPayloadError('');
-                } catch {
-                    setPayload(event.schema);
-                }
-            }
-        }
-    }, [selectedEventId, events]);
-
-    // Intelligent payload inferring when stream changes (existing logic)
-    useEffect(() => {
-        if (!selectedStreamId || selectedEventId) return;
-
-        const streamEventIds = new Set<string>();
+    const availableEvents = useMemo(() => {
+        const ids = new Set<string>();
         consumers.forEach(consumer => {
-            (consumer.sources || []).forEach(source => {
-                if (source.streamId === selectedStreamId) {
-                    (source.eventIds || []).forEach(eid => streamEventIds.add(eid));
-                }
-            });
+            consumer.sources
+                .filter(source => source.streamId === selectedStreamId)
+                .forEach(source => source.eventIds.forEach(id => ids.add(id)));
         });
+        return events.filter(event => ids.has(event.id));
+    }, [consumers, events, selectedStreamId]);
 
-        const streamEvents = Array.from(streamEventIds)
-            .map(id => events.find(e => e.id === id))
-            .filter(Boolean);
+    const selectEvent = (eventId: string) => {
+        setSelectedEventId(eventId);
+        const event = events.find(candidate => candidate.id === eventId);
+        setPayload(event ? JSON.stringify(generateExampleFromSchema(event), null, 2) : DEFAULT_PAYLOAD);
+        setPayloadError('');
+    };
 
-        if (streamEvents.length > 0) {
-            try {
-                const parsedSchemas = streamEvents.map(e => {
-                    let str = e!.schema.replace(/"ISO-8601"/g, '"{{now}}"');
-                    str = str.replace(/"number"/g, '0');
-                    str = str.replace(/"string"/g, '"{{index}}"');
-                    return JSON.parse(str);
-                });
-
-                const newPayload = parsedSchemas.length === 1
-                    ? JSON.stringify(parsedSchemas[0], null, 2)
-                    : JSON.stringify(parsedSchemas, null, 2);
-
-                setPayload(newPayload);
-                setPayloadError('');
-            } catch (err) {
-                console.error("Failed to auto-infer payload", err);
-            }
-        }
-    }, [selectedStreamId, selectedEventId, consumers, events]);
+    const selectStream = (streamId: string) => {
+        setSelectedStreamId(streamId);
+        const ids = eventIdsForStream(streamId);
+        const firstEvent = events.find(event => ids.has(event.id));
+        selectEvent(firstEvent?.id ?? '');
+    };
 
     const validatePayload = useCallback((val: string) => {
         if (!val.trim()) { setPayloadError(''); return true; }
@@ -112,14 +95,14 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
             const parsed = JSON.parse(
                 payload.replace(/\{\{now\}\}/g, () => new Date().toISOString())
                     .replace(/\{\{index\}\}/g, "1")
-            );
+            ) as JsonValue;
             const payloads = Array.isArray(parsed) ? parsed : [parsed];
             onClose();
-            startSimulation(selectedStreamId, payloads);
+            startSimulation(selectedStreamId, payloads, selectedEventId || undefined);
         } catch {
             // Fallback
             onClose();
-            startSimulation(selectedStreamId, {});
+            startSimulation(selectedStreamId, {}, selectedEventId || undefined);
         }
     };
 
@@ -143,7 +126,7 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
                         <Select
                             size="small"
                             value={selectedStreamId}
-                            onChange={e => setSelectedStreamId(e.target.value)}
+                            onChange={e => selectStream(e.target.value)}
                             displayEmpty
                             sx={{ width: 280, height: 36, fontSize: '13px' }}
                         >
@@ -162,12 +145,12 @@ const EventDispatcher: React.FC<EventDispatcherProps> = ({ onClose }) => {
                         <Select
                             size="small"
                             value={selectedEventId}
-                            onChange={e => setSelectedEventId(e.target.value)}
+                            onChange={e => selectEvent(e.target.value)}
                             displayEmpty
                             sx={{ width: 280, height: 36, fontSize: '13px' }}
                         >
                             <MenuItem value="">— None (Generic / Auto) —</MenuItem>
-                            {events.map(ev => (
+                            {availableEvents.map(ev => (
                                 <MenuItem key={ev.id} value={ev.id}>{ev.name}</MenuItem>
                             ))}
                         </Select>

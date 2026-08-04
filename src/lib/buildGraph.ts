@@ -93,6 +93,7 @@ const streamSimState = (streamId: string, sim: SimulationState) => {
 };
 
 const consumerSimState = (consumerId: string, sim: SimulationState) => {
+    if (sim?.currentConsumerId === consumerId && sim.active) return 'active';
     if (sim?.visitedConsumerIds?.includes(consumerId)) return 'visited';
     return 'idle';
 };

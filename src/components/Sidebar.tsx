@@ -109,20 +109,20 @@ const Sidebar: React.FC = () => {
     if (!leftSidebarOpen) {
         return (
             <Paper elevation={1} sx={{ width: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', py: 2, height: '100%', borderRadius: 2 }}>
-                <IconButton onClick={() => setLeftSidebar(true)} sx={{ mb: 4 }}>
+                <IconButton onClick={() => setLeftSidebar(true)} sx={{ mb: 4 }} aria-label="Open sidebar">
                     <PanelLeftOpen size={20} />
                 </IconButton>
                 <Stack spacing={2} sx={{ flex: 1 }}>
                     {tabs.map(tab => (
                         <Tooltip key={tab.id} title={tab.label} placement="right">
-                            <IconButton onClick={() => { setLeftSidebar(true); setSidebarTab(tab.id); }}
+                            <IconButton aria-label={`Open ${tab.label}`} onClick={() => { setLeftSidebar(true); setSidebarTab(tab.id); }}
                                 sx={{ color: sidebarTab === tab.id ? tab.actualColorHex : 'text.secondary' }}>
                                 <tab.icon size={20} />
                             </IconButton>
                         </Tooltip>
                     ))}
                     <Tooltip title="Toggle Theme" placement="right">
-                        <IconButton onClick={toggleTheme}>
+                        <IconButton onClick={toggleTheme} aria-label="Toggle theme">
                             {storeTheme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                         </IconButton>
                     </Tooltip>
@@ -145,10 +145,10 @@ const Sidebar: React.FC = () => {
                     </Box>
                 </Stack>
                 <Stack direction="row" spacing={0.5}>
-                    <IconButton size="small" onClick={toggleTheme}>
+                    <IconButton size="small" onClick={toggleTheme} aria-label="Toggle theme">
                         {storeTheme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                     </IconButton>
-                    <IconButton size="small" onClick={() => setLeftSidebar(false)}>
+                    <IconButton size="small" onClick={() => setLeftSidebar(false)} aria-label="Close sidebar">
                         <PanelLeftClose size={16} />
                     </IconButton>
                 </Stack>
@@ -184,7 +184,7 @@ const Sidebar: React.FC = () => {
                 {projects.map((p) => (
                     <MenuItem key={p.id} selected={p.id === activeProjectId} onClick={() => { switchProject(p.id); setAnchorEl(null); }} sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2" sx={{ flex: 1 }} noWrap>{p.name}</Typography>
-                        <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); openModal('confirm', { title: 'Delete Project', message: `Delete project "${p.name}"?`, confirmLabel: 'Delete', onConfirm: () => deleteProject(p.id) }); }}>
+                        <IconButton aria-label={`Delete project ${p.name}`} size="small" color="error" onClick={(e) => { e.stopPropagation(); openModal('confirm', { title: 'Delete Project', message: `Delete project "${p.name}"?`, confirmLabel: 'Delete', onConfirm: () => deleteProject(p.id) }); }}>
                             <Trash size={14} />
                         </IconButton>
                     </MenuItem>
@@ -199,7 +199,7 @@ const Sidebar: React.FC = () => {
                     <Typography variant="body2">Load Demo</Typography>
                 </MenuItem>
                 <Divider />
-                <MenuItem onClick={() => { setAnchorEl(null); openModal('confirm', { title: 'Reset Data', message: 'Delete all apps?', confirmLabel: 'Reset', onConfirm: resetApp }); }} sx={{ color: 'error.main' }}>
+                <MenuItem onClick={() => { setAnchorEl(null); openModal('confirm', { title: 'Reset Data', message: 'Delete all FlowWand projects and preferences?', confirmLabel: 'Reset', onConfirm: resetApp }); }} sx={{ color: 'error.main' }}>
                     <ListItemIcon><Trash size={16} color="inherit" /></ListItemIcon>
                     <Typography variant="body2">Reset App Data</Typography>
                 </MenuItem>
@@ -280,7 +280,7 @@ const Sidebar: React.FC = () => {
                                             }}
                                         >
                                             EVENT STREAMS
-                                            <IconButton size="small" onClick={() => openModal('stream')} sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' }, width: 22, height: 22 }}>
+                                            <IconButton aria-label="Add stream" size="small" onClick={() => openModal('stream')} sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' }, width: 22, height: 22 }}>
                                                 <Plus size={14} />
                                             </IconButton>
                                         </ListSubheader>
@@ -318,9 +318,9 @@ const Sidebar: React.FC = () => {
                                                         />
 
                                                         <Stack direction="row" spacing={0.5} className="actions" sx={{ opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(5px)' }, transition: '0.2s', flexShrink: 0 }}>
-                                                            <IconButton size="small" color="primary" onClick={() => handleSimulate(s.id)} disabled={simActive} sx={{ width: 24, height: 24 }}><Play size={12} /></IconButton>
-                                                            <IconButton size="small" onClick={() => openModal('stream', s)} sx={{ width: 24, height: 24 }}><Pencil size={12} /></IconButton>
-                                                            <IconButton size="small" color="error" onClick={() => openModal('confirm', { title: 'Delete Stream', message: 'Delete stream?', onConfirm: () => deleteStream(s.id) })} sx={{ width: 24, height: 24 }}><Trash size={12} /></IconButton>
+                                                            <IconButton aria-label={`Simulate ${s.name}`} size="small" color="primary" onClick={() => handleSimulate(s.id)} disabled={simActive} sx={{ width: 24, height: 24 }}><Play size={12} /></IconButton>
+                                                            <IconButton aria-label={`Edit ${s.name}`} size="small" onClick={() => openModal('stream', s)} sx={{ width: 24, height: 24 }}><Pencil size={12} /></IconButton>
+                                                            <IconButton aria-label={`Delete ${s.name}`} size="small" color="error" onClick={() => openModal('confirm', { title: 'Delete Stream', message: 'Delete stream?', onConfirm: () => deleteStream(s.id) })} sx={{ width: 24, height: 24 }}><Trash size={12} /></IconButton>
                                                         </Stack>
                                                     </Stack>
                                                 </Paper>
@@ -413,7 +413,7 @@ const Sidebar: React.FC = () => {
                                             }}
                                         >
                                             CONSUMERS
-                                            <IconButton size="small" onClick={() => openModal('consumer')} sx={{ bgcolor: 'secondary.main', color: 'white', '&:hover': { bgcolor: 'secondary.dark' }, width: 22, height: 22 }}>
+                                            <IconButton aria-label="Add consumer" size="small" onClick={() => openModal('consumer')} sx={{ bgcolor: 'secondary.main', color: 'white', '&:hover': { bgcolor: 'secondary.dark' }, width: 22, height: 22 }}>
                                                 <Plus size={14} />
                                             </IconButton>
                                         </ListSubheader>
@@ -450,8 +450,8 @@ const Sidebar: React.FC = () => {
 
 
                                                         <Stack direction="row" spacing={0.5} className="actions" sx={{ opacity: { xs: 1, md: 0 }, transform: { md: 'translateX(5px)' }, transition: '0.2s', flexShrink: 0 }}>
-                                                            <IconButton size="small" onClick={() => openModal('consumer', c)} sx={{ width: 24, height: 24 }}><Pencil size={12} /></IconButton>
-                                                            <IconButton size="small" color="error" onClick={() => openModal('confirm', { title: 'Delete Consumer', message: 'Delete consumer?', onConfirm: () => deleteConsumer(c.id) })} sx={{ width: 24, height: 24 }}><Trash size={12} /></IconButton>
+                                                            <IconButton aria-label={`Edit ${c.name}`} size="small" onClick={() => openModal('consumer', c)} sx={{ width: 24, height: 24 }}><Pencil size={12} /></IconButton>
+                                                            <IconButton aria-label={`Delete ${c.name}`} size="small" color="error" onClick={() => openModal('confirm', { title: 'Delete Consumer', message: 'Delete consumer?', onConfirm: () => deleteConsumer(c.id) })} sx={{ width: 24, height: 24 }}><Trash size={12} /></IconButton>
                                                         </Stack>
                                                     </Stack>
                                                 </Paper>
@@ -473,7 +473,7 @@ const Sidebar: React.FC = () => {
                                             }}
                                         >
                                             DATA FLOWS
-                                            <IconButton size="small" onClick={() => openModal('flow')} sx={{ bgcolor: 'success.main', color: 'white', '&:hover': { bgcolor: 'success.dark' }, width: 22, height: 22 }}>
+                                            <IconButton aria-label="Add flow" size="small" onClick={() => openModal('flow')} sx={{ bgcolor: 'success.main', color: 'white', '&:hover': { bgcolor: 'success.dark' }, width: 22, height: 22 }}>
                                                 <Plus size={14} />
                                             </IconButton>
                                         </ListSubheader>
@@ -529,7 +529,7 @@ const Sidebar: React.FC = () => {
                                             }}
                                         >
                                             EVENT TYPES
-                                            <IconButton size="small" onClick={() => openModal('event')} sx={{ bgcolor: 'error.main', color: 'white', '&:hover': { bgcolor: 'error.dark' }, width: 22, height: 22 }}>
+                                            <IconButton aria-label="Add event" size="small" onClick={() => openModal('event')} sx={{ bgcolor: 'error.main', color: 'white', '&:hover': { bgcolor: 'error.dark' }, width: 22, height: 22 }}>
                                                 <Plus size={14} />
                                             </IconButton>
                                         </ListSubheader>

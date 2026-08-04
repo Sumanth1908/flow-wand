@@ -8,9 +8,16 @@ interface Props {
     color: string;
 }
 
+const Label = ({ children }: { children: React.ReactNode }) => (
+    <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 'bold', letterSpacing: 1, display: 'block', mb: 0.5 }}>
+        {children}
+    </Typography>
+);
+
 const NodeDetailsModal: React.FC<Props> = ({ color }) => {
     const editingItem = useStore(s => s.editingItem);
     const events = useStore(s => s.events);
+    const streams = useStore(s => s.streams);
     const closeModal = useStore(s => s.closeModal);
     const openModal = useStore(s => s.openModal);
 
@@ -19,12 +26,6 @@ const NodeDetailsModal: React.FC<Props> = ({ color }) => {
     const navToEdit = () => {
         openModal(editingItem.type, editingItem.item);
     };
-
-    const Label = ({ children }: { children: React.ReactNode }) => (
-        <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 'bold', letterSpacing: 1, display: 'block', mb: 0.5 }}>
-            {children}
-        </Typography>
-    );
 
     if (editingItem.type === 'stream') {
         const stream = editingItem.item as EventStream;
@@ -75,7 +76,6 @@ const NodeDetailsModal: React.FC<Props> = ({ color }) => {
     if (editingItem.type === 'consumer') {
         const consumer = editingItem.item as Consumer;
         const getEventNames = (eIds: string[]) => eIds.map(id => events.find(e => e.id === id)?.name).filter(Boolean);
-        const streams = useStore.getState().streams;
         const getStreamName = (sid: string) => streams.find(s => s.id === sid)?.name || sid;
 
         return (

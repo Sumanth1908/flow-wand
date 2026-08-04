@@ -17,6 +17,7 @@ const SettingsModal: React.FC = () => {
     const setEdgePathStyle = useStore(s => s.setEdgePathStyle);
     const simulation = useStore(s => s.simulation);
     const setSimulationSpeed = useStore(s => s.setSimulationSpeed);
+    const setMaxLoops = useStore(s => s.setMaxLoops);
     const traceMode = useStore(s => s.traceMode);
     const setTraceMode = useStore(s => s.setTraceMode);
     const resetLayout = useStore(s => s.resetLayout);
@@ -121,6 +122,21 @@ const SettingsModal: React.FC = () => {
                                 </Button>
                             ))}
                         </Stack>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box>
+                            <Typography variant="body2" color="text.primary" fontWeight="600">Cycle Limit</Typography>
+                            <Typography variant="caption" color="text.secondary">Repeated identical event states</Typography>
+                        </Box>
+                        <Select
+                            size="small"
+                            value={simulation.maxLoops}
+                            onChange={event => setMaxLoops(Number(event.target.value))}
+                            sx={{ width: 90, height: 32, fontSize: '13px' }}
+                        >
+                            {[1, 2, 3, 4, 5].map(value => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+                        </Select>
                     </Box>
 
                     <Box sx={{ mt: 'auto !important', pt: 2 }}>

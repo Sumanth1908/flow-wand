@@ -11,6 +11,7 @@ import {
     Slider, Tabs, Tab, Button, IconButton, Paper
 } from '@mui/material';
 import { v4 as uuid } from 'uuid';
+import { generateExampleFromSchema, getSchemaFields } from '../../lib/eventSchema';
 
 interface ConsumerFormProps {
     color: string;
@@ -385,7 +386,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                         variant="standard"
                                         value={transformScript}
                                         onChange={e => setTransformScript(e.target.value)}
-                                        placeholder="// e.g. payload.processedAt = new Date().toISOString();"
+                                        placeholder="// e.g. payload.status = 'processed'; return payload;"
                                         InputProps={{
                                             disableUnderline: true,
                                             sx: { fontFamily: 'monospace', fontSize: 12 }
@@ -470,8 +471,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                                                 </Box>
                                                             );
                                                         }
-                                                        let fields: string[] = [];
-                                                        try { fields = Object.keys(JSON.parse(ev.schema)); } catch(e) {}
+                                                        const fields = getSchemaFields(ev);
                                                         if (fields.length === 0) {
                                                             return (
                                                                 <Box sx={{ mt: 1, p: 0.8, borderRadius: 1.5, bgcolor: 'action.hover', border: '1px dashed', borderColor: 'divider' }}>
@@ -552,8 +552,8 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                                             const ev = events.find(event => event.id === evId);
                                                             if (ev && (!rule.transformScript || rule.transformScript.trim() === '')) {
                                                                 try {
-                                                                    const schema = JSON.parse(ev.schema);
-                                                                    nextRule.transformScript = `// Construct ${ev.name}\nreturn ${JSON.stringify(schema, null, 2)};`;
+                                                                    const example = generateExampleFromSchema(ev);
+                                                                    nextRule.transformScript = `// Construct ${ev.name}\nreturn ${JSON.stringify(example, null, 2)};`;
                                                                 } catch {
                                                                     nextRule.transformScript = `// Construct ${ev.name}\nreturn ${ev.schema};`;
                                                                 }
@@ -595,8 +595,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                                             {(() => {
                                                                 const inEv = events.find(e => e.id === rule.sourceEventId);
                                                                 if (!inEv) return null;
-                                                                let fields: string[] = [];
-                                                                try { fields = Object.keys(JSON.parse(inEv.schema)); } catch(e) {}
+                                                                const fields = getSchemaFields(inEv);
                                                                 if (fields.length === 0) return null;
                                                                 return (
                                                                     <Box>
@@ -624,8 +623,7 @@ const ConsumerForm: React.FC<ConsumerFormProps> = ({ color }) => {
                                                             {(() => {
                                                                 const outEv = events.find(e => e.id === rule.outputEventId);
                                                                 if (!outEv) return null;
-                                                                let fields: string[] = [];
-                                                                try { fields = Object.keys(JSON.parse(outEv.schema)); } catch(e) {}
+                                                                const fields = getSchemaFields(outEv);
                                                                 if (fields.length === 0) return null;
                                                                 return (
                                                                     <Box>

@@ -36,7 +36,7 @@ const useStore = create<StoreState>((set, get) => {
     const setEvents = (e: EventType[]) => set({ events: e });
     const getProjId = () => get().activeProjectId;
 
-    const streamActions = () => buildEventStreamActions(getProjId(), getStreams, setStreams, showToast);
+    const streamActions = () => buildEventStreamActions(getProjId(), getStreams, setStreams, setConsumers, showToast);
     const consumerActions = () => buildConsumerActions(getProjId(), getConsumers, setConsumers, getFlows, setFlows);
     const flowActions = () => buildFlowActions(getProjId(), getFlows, setFlows);
     const eventActions = () => buildEventActions(getProjId(), getEvents, setEvents, getConsumers, setConsumers);
@@ -229,7 +229,15 @@ const useStore = create<StoreState>((set, get) => {
         // ── Stream actions ─────────────────────────────────────────
         addStream: (...a) => streamActions().addStream(...a),
         updateStream: (...a) => streamActions().updateStream(...a),
-        deleteStream: (...a) => streamActions().deleteStream(...a),
+        deleteStream: (id) => {
+            streamActions().deleteStream(id);
+            set(state => ({
+                nodePositions: Object.fromEntries(Object.entries(state.nodePositions).filter(([nodeId]) => nodeId !== id)),
+                edgeRoutings: Object.fromEntries(Object.entries(state.edgeRoutings).filter(([edgeId]) =>
+                    !edgeId.startsWith(`${id}->`) && !edgeId.endsWith(`->${id}`)
+                )),
+            }));
+        },
         isStreamNameUnique: (n, x) => streamActions().isStreamNameUnique(n, x),
 
         // ── Consumer actions ─────────────────────────────────────
@@ -291,7 +299,7 @@ const useStore = create<StoreState>((set, get) => {
         },
 
         resetApp: () => {
-            localStorage.clear();
+            storage.clearAppData();
             set({
                 projects: [],
                 activeProjectId: null,

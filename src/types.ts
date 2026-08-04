@@ -13,6 +13,9 @@ export type LayoutDirection = 'LR' | 'TB';
 export type EdgePathStyle = 'bezier' | 'step' | 'straight';
 export type RoutingStrategy = 'broadcast' | 'conditional' | 'failover';
 
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
 export type ConsumerType = 'default' | 'lambda' | 'service' | 'database';
 
 export interface EventStream {
@@ -33,7 +36,7 @@ export interface RoutingRule {
     id: string;
     sourceStreamId?: string; // Filter: only run for this source
     sourceEventId?: string;  // Filter: only run for this specific event type
-    condition: string;       // JS expression
+    condition: string;       // Restricted payload expression
     sinkStreamId: string;
     outputEventId?: string;  // Explicit event schema to map to
     transformScript?: string;
@@ -49,7 +52,7 @@ export interface Consumer {
     sinks: StreamConnection[];
     routingStrategy?: RoutingStrategy;
     failureRate?: number;
-    transformScript?: string; // JS block e.g. "payload.newField = 1; return payload;"
+    transformScript?: string; // Restricted assignments e.g. "payload.newField = 1; return payload;"
     routingRules?: RoutingRule[];
     dlqSink?: StreamConnection;          // Failure-path sink (hidden from canvas)
 }
@@ -66,6 +69,15 @@ export interface EventType {
     name: string;
     description: string;
     schema: string;
+    examplePayload?: string;
+}
+
+export interface EventEnvelope {
+    streamId: string;
+    eventTypeId?: string;
+    payload: JsonValue;
+    path: string[];
+    hopCount: number;
 }
 
 export interface SimulationStep {
@@ -74,8 +86,9 @@ export interface SimulationStep {
     from?: string;
     to?: string;
     message: string;
-    payload?: any;
-    outputPayload?: any;
+    payload?: JsonValue;
+    outputPayload?: JsonValue;
+    eventTypeId?: string;
     isCycle?: boolean;
 }
 
@@ -94,8 +107,8 @@ export interface SimulationState {
         type: 'stream' | 'consumer' | 'info' | 'warning';
         message: string;
         time: string;
-        payload?: any;
-        outputPayload?: any;
+        payload?: JsonValue;
+        outputPayload?: JsonValue;
     }[];
     speed: number;
     maxLoops: number;
@@ -171,11 +184,11 @@ export interface StoreState {
     updateFlow: (id: string, patch: Partial<DataFlow>) => void;
     deleteFlow: (id: string) => void;
 
-    addEvent: (name: string, description: string, schema: string) => void;
+    addEvent: (name: string, description: string, schema: string, examplePayload?: string) => void;
     updateEvent: (id: string, patch: Partial<EventType>) => void;
     deleteEvent: (id: string) => void;
 
-    startSimulation: (streamId: string, customPayload?: any) => void;
+    startSimulation: (streamId: string, customPayload?: JsonValue | JsonValue[], eventTypeId?: string) => void;
     stopSimulation: () => void;
     clearSimulation: () => void;
     setSimulationSpeed: (ms: number) => void;
@@ -198,4 +211,3 @@ export interface StoreState {
     loadDemo: () => void;
     resetApp: () => void;
 }
-

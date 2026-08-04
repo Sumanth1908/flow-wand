@@ -22,7 +22,24 @@ export default defineConfig({
             if (id.includes('lucide-react')) {
               return 'lucide-react';
             }
-            return 'vendor'; // all other dependencies
+            if (id.includes('@mui')) {
+              return 'mui';
+            }
+            if (id.includes('@emotion')) {
+              return 'emotion';
+            }
+            if (id.includes('html-to-image')) {
+              return 'snapshot-export';
+            }
+            if (id.includes('dagre')) {
+              return 'dagre';
+            }
+            if (id.includes('zustand')) {
+              return 'zustand';
+            }
+            if (id.includes('/uuid/')) {
+              return 'uuid';
+            }
           }
         },
       },

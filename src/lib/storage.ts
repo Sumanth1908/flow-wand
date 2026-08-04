@@ -2,6 +2,8 @@
  * lib/storage.ts
  */
 import { Project, EventStream, Consumer, DataFlow, EventType } from '../types';
+import { v4 as uuid } from 'uuid';
+import { normalizeEventSchema } from './eventSchema';
 
 const KEYS = {
     PROJECTS: 'fw_projects',
@@ -9,7 +11,7 @@ const KEYS = {
     PREFS: 'fw_prefs',
 };
 
-interface ProjectData {
+export interface ProjectData {
     streams: EventStream[];
     consumers: Consumer[];
     flows: DataFlow[];
@@ -108,6 +110,8 @@ export const getProjectData = (id: string): ProjectData => {
         });
     }
 
+    if (data.events) data.events = data.events.map((event: EventType) => normalizeEventSchema(event));
+
     // Migration for event tagging: from flat arrays to specific mappings
     if (data.consumers) {
         data.consumers = data.consumers.map((c: any) => {
@@ -153,8 +157,19 @@ export const deleteStream = (projectId: string, id: string) => {
         ...c,
         sources: (c.sources || []).filter(s => s.streamId !== id),
         sinks: (c.sinks || []).filter(s => s.streamId !== id),
+        dlqSink: c.dlqSink?.streamId === id ? undefined : c.dlqSink,
+        routingRules: (c.routingRules || []).filter(rule =>
+            rule.sourceStreamId !== id && rule.sinkStreamId !== id
+        ),
     }));
+    if (d.nodePositions) delete d.nodePositions[id];
+    if (d.edgeRoutings) {
+        d.edgeRoutings = Object.fromEntries(Object.entries(d.edgeRoutings).filter(([edgeId]) =>
+            !edgeId.startsWith(`${id}->`) && !edgeId.endsWith(`->${id}`)
+        ));
+    }
     saveProjectData(projectId, d);
+    return d;
 };
 
 // ── Consumers ──────────────────────────────────────────────
@@ -211,8 +226,16 @@ export const deleteEvent = (projectId: string, id: string) => {
         ...c,
         sources: (c.sources || []).map(s => ({ ...s, eventIds: (s.eventIds || []).filter(eid => eid !== id) })),
         sinks: (c.sinks || []).map(s => ({ ...s, eventIds: (s.eventIds || []).filter(eid => eid !== id) })),
+        dlqSink: c.dlqSink ? { ...c.dlqSink, eventIds: c.dlqSink.eventIds.filter(eid => eid !== id) } : undefined,
+        routingRules: (c.routingRules || []).map(rule => ({
+            ...rule,
+            sourceEventId: rule.sourceEventId === id ? undefined : rule.sourceEventId,
+            outputEventId: rule.outputEventId === id ? undefined : rule.outputEventId,
+            eventIds: rule.eventIds?.filter(eid => eid !== id),
+        })),
     }));
     saveProjectData(projectId, d);
+    return d;
 };
 
 // ── Import / Export ─────────────────────────────────────────
@@ -223,12 +246,33 @@ export const exportProject = (id: string) => {
     return { version: 1, exportedAt: new Date().toISOString(), project, data };
 };
 export const importProject = (bundle: { project: Project, data: ProjectData }) => {
-    const { project, data } = bundle;
+    if (!bundle || typeof bundle !== 'object' || !bundle.project || !bundle.data) {
+        throw new Error('Invalid FlowWand project bundle');
+    }
+    const { data } = bundle;
+    if (typeof bundle.project.id !== 'string' || typeof bundle.project.name !== 'string') {
+        throw new Error('Project metadata is invalid');
+    }
+    if (![data.streams, data.consumers, data.flows, data.events].every(Array.isArray)) {
+        throw new Error('Project data must contain streams, consumers, flows, and events arrays');
+    }
+
     const list = getProjects();
-    const idx = list.findIndex(p => p.id === project.id);
-    if (idx >= 0) list[idx] = project; else list.push(project);
+    const hasCollision = list.some(project => project.id === bundle.project.id);
+    const project: Project = hasCollision
+        ? { ...bundle.project, id: uuid(), name: `${bundle.project.name} (Imported)`, createdAt: new Date().toISOString() }
+        : bundle.project;
+    list.push(project);
     saveProjects(list);
     saveProjectData(project.id, data);
     return project;
 };
 
+export const clearAppData = () => {
+    try {
+        const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+            .filter((key): key is string => Boolean(key));
+        keys.filter(key => key === KEYS.PROJECTS || key === KEYS.PREFS || key.startsWith(KEYS.PROJECT_PFX))
+            .forEach(key => localStorage.removeItem(key));
+    } catch { /* storage is unavailable */ }
+};
