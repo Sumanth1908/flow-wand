@@ -1,18 +1,18 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { X, BookOpen, Zap, GitBranch, FolderOpen, Radio, TriangleAlert, Settings2, Send, Camera } from 'lucide-react';
 import useStore from '../../store/useStore';
-import StreamForm from './StreamForm';
-import ConsumerForm from './ConsumerForm';
-import FlowForm from './FlowForm';
-import ProjectForm from './ProjectForm';
-import EventForm from './EventForm';
-import ConfirmForm from './ConfirmForm';
-import NodeDetailsModal from './NodeDetailsModal';
-import SettingsModal from './SettingsModal';
-import EventDispatcher from '../simulation/EventDispatcher';
-import SnapshotPanel from '../canvas/SnapshotPanel';
+import { Dialog, DialogTitle, DialogContent, IconButton, Stack, Typography, Box, CircularProgress } from '@mui/material';
 
-import { Dialog, DialogTitle, DialogContent, IconButton, Stack, Typography, Box } from '@mui/material';
+const StreamForm = lazy(() => import('./StreamForm'));
+const ConsumerForm = lazy(() => import('./ConsumerForm'));
+const FlowForm = lazy(() => import('./FlowForm'));
+const ProjectForm = lazy(() => import('./ProjectForm'));
+const EventForm = lazy(() => import('./EventForm'));
+const ConfirmForm = lazy(() => import('./ConfirmForm'));
+const NodeDetailsModal = lazy(() => import('./NodeDetailsModal'));
+const SettingsModal = lazy(() => import('./SettingsModal'));
+const EventDispatcher = lazy(() => import('../simulation/EventDispatcher'));
+const SnapshotPanel = lazy(() => import('../canvas/SnapshotPanel'));
 
 const ICON_MAP: Record<string, any> = {
     stream: BookOpen, consumer: Zap, flow: GitBranch, project: FolderOpen,
@@ -62,12 +62,13 @@ const Modal: React.FC = () => {
                     </Box>
                     <Typography variant="h6" fontWeight="bold">{title}</Typography>
                 </Stack>
-                <IconButton onClick={closeModal} size="small">
+                <IconButton onClick={closeModal} size="small" aria-label="Close dialog">
                     <X size={20} />
                 </IconButton>
             </DialogTitle>
 
             <DialogContent sx={{ p: 3, pt: 3 }}>
+                <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={28} /></Box>}>
                 <Box sx={{ mt: 1 }}>
                     {modalOpen === 'stream' && <StreamForm color={color} />}
                     {modalOpen === 'consumer' && <ConsumerForm color={color} />}
@@ -80,6 +81,7 @@ const Modal: React.FC = () => {
                     {modalOpen === 'fireEvent' && <EventDispatcher onClose={closeModal} />}
                     {modalOpen === 'snapshot' && <SnapshotPanel onClose={closeModal} />}
                 </Box>
+                </Suspense>
             </DialogContent>
         </Dialog>
     );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import useStore from '../../store/useStore';
 import ModalFooter from './ModalFooter';
 import { EventStream, StreamType } from '../../types';
@@ -27,16 +27,9 @@ const StreamForm: React.FC<StreamFormProps> = ({ color }) => {
     const [partitions, setParts] = useState(editingItem?.partitions || 1);
     const [desc, setDesc] = useState(editingItem?.description || '');
     const [isDLQ, setIsDLQ] = useState(editingItem?.isDLQ ?? false);
-    const [error, setError] = useState('');
-
-    useEffect(() => {
-        if (name.trim()) {
-            const excludeId = editingItem?.id ?? null;
-            setError(isStreamNameUnique(name.trim(), excludeId) ? '' : `"${name.trim()}" already exists`);
-        } else {
-            setError('');
-        }
-    }, [name, editingItem, isStreamNameUnique]);
+    const error = name.trim() && !isStreamNameUnique(name.trim(), editingItem?.id ?? null)
+        ? `"${name.trim()}" already exists`
+        : '';
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -173,4 +166,3 @@ const StreamForm: React.FC<StreamFormProps> = ({ color }) => {
 };
 
 export default StreamForm;
-

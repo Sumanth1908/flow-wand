@@ -4,9 +4,10 @@
  * 12 streams · 30 consumers · 5 flows · 14 event types
  */
 import { EventStream, Consumer, DataFlow, EventType } from '../types';
+import { schemaFromExample } from './eventSchema';
 
 // ── 1. EVENT TYPES ────────────────────────────────────────
-const events: EventType[] = [
+const legacyEvents: EventType[] = [
     {
         id: 'evt-order-placed',
         name: 'OrderPlaced',
@@ -93,6 +94,15 @@ const events: EventType[] = [
     },
 ];
 
+const events: EventType[] = legacyEvents.map(event => {
+    const example = JSON.parse(event.schema) as unknown;
+    return {
+        ...event,
+        schema: JSON.stringify(schemaFromExample(example), null, 2),
+        examplePayload: JSON.stringify(example, null, 2),
+    };
+});
+
 // ── 2. STREAMS ────────────────────────────────────────────
 const streams: EventStream[] = [
     { id: 'st-orders', name: 'orders.events.v2', type: 'kafka', description: 'All order lifecycle events', partitions: 32 },
@@ -110,7 +120,7 @@ const streams: EventStream[] = [
 ];
 
 // ── 3. CONSUMERS ──────────────────────────────────────────
-const consumers: Consumer[] = [
+const legacyConsumers: Consumer[] = [
 
     // ── ORDER DOMAIN ──────────────────────────────────────
     {
@@ -442,6 +452,24 @@ const consumers: Consumer[] = [
         routingStrategy: 'conditional',
     },
 ];
+
+const consumers: Consumer[] = legacyConsumers.map(consumer => {
+    if (consumer.routingStrategy !== 'conditional' || consumer.routingRules?.length) return consumer;
+    const sourceEventIds = [...new Set(consumer.sources.flatMap(source => source.eventIds))];
+    return {
+        ...consumer,
+        routingRules: consumer.sinks.flatMap(sink => {
+            const outputIds = sink.eventIds.length ? sink.eventIds : [undefined];
+            return outputIds.map((outputEventId, index) => ({
+                id: `${consumer.id}-demo-rule-${sink.streamId}-${index}`,
+                sourceEventId: sourceEventIds.length === 1 ? sourceEventIds[0] : undefined,
+                condition: 'true',
+                sinkStreamId: sink.streamId,
+                outputEventId,
+            }));
+        }),
+    };
+});
 
 // ── 4. FLOWS ──────────────────────────────────────────────
 const flows: DataFlow[] = [

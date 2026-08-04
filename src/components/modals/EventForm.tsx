@@ -14,6 +14,12 @@ const DEFAULT_SCHEMA = JSON.stringify({
     required: ['id', 'timestamp'],
 }, null, 2);
 
+const DEFAULT_EXAMPLE = JSON.stringify({
+    id: '00000000-0000-4000-8000-000000000000',
+    timestamp: '{{now}}',
+    payload: {},
+}, null, 2);
+
 interface EventFormProps {
     color: string;
 }
@@ -27,12 +33,31 @@ const EventForm: React.FC<EventFormProps> = ({ color }) => {
     const [name, setName] = useState(editingItem?.name || '');
     const [desc, setDesc] = useState(editingItem?.description || '');
     const [schema, setSchema] = useState(editingItem?.schema || DEFAULT_SCHEMA);
+    const [examplePayload, setExamplePayload] = useState(editingItem?.examplePayload || DEFAULT_EXAMPLE);
     const [schemaError, setSchemaError] = useState('');
+    const [exampleError, setExampleError] = useState('');
 
     const validateSchema = (val: string) => {
         if (!val.trim()) { setSchemaError(''); return true; }
-        try { JSON.parse(val); setSchemaError(''); return true; }
+        try {
+            const parsed = JSON.parse(val);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Schema must be a JSON object');
+            setSchemaError('');
+            return true;
+        }
         catch (e: any) { setSchemaError(e.message); return false; }
+    };
+
+    const validateExample = (val: string) => {
+        if (!val.trim()) { setExampleError(''); return true; }
+        try {
+            JSON.parse(val.replace(/\{\{now\}\}/g, new Date().toISOString()));
+            setExampleError('');
+            return true;
+        } catch (e: any) {
+            setExampleError(e.message);
+            return false;
+        }
     };
 
     const handleSchemaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -42,11 +67,11 @@ const EventForm: React.FC<EventFormProps> = ({ color }) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name.trim() || !validateSchema(schema)) return;
+        if (!name.trim() || !validateSchema(schema) || !validateExample(examplePayload)) return;
         if (editingItem) {
-            updateEvent(editingItem.id, { name: name.trim(), description: desc.trim(), schema });
+            updateEvent(editingItem.id, { name: name.trim(), description: desc.trim(), schema, examplePayload });
         } else {
-            addEvent(name.trim(), desc.trim(), schema);
+            addEvent(name.trim(), desc.trim(), schema, examplePayload);
         }
         closeModal();
     };
@@ -95,9 +120,27 @@ const EventForm: React.FC<EventFormProps> = ({ color }) => {
                     }}
                     InputLabelProps={{ shrink: true }}
                 />
+
+                <TextField
+                    label={<>Example Payload <Typography component="span" variant="caption" color="text.secondary">(optional)</Typography></>}
+                    fullWidth
+                    size="small"
+                    multiline
+                    rows={6}
+                    value={examplePayload}
+                    onChange={event => {
+                        setExamplePayload(event.target.value);
+                        validateExample(event.target.value);
+                    }}
+                    spellCheck={false}
+                    error={!!exampleError}
+                    helperText={exampleError || 'Used by the event dispatcher; supports {{now}}.'}
+                    InputProps={{ sx: { fontFamily: 'monospace', fontSize: 13 } }}
+                    InputLabelProps={{ shrink: true }}
+                />
             </Stack>
 
-            <ModalFooter color={color} isEditing={!!editingItem} disabled={!!schemaError || !name.trim()} />
+            <ModalFooter color={color} isEditing={!!editingItem} disabled={!!schemaError || !!exampleError || !name.trim()} />
         </form>
     );
 };

@@ -3,12 +3,13 @@
  */
 import { v4 as uuid } from 'uuid';
 import * as storage from '../lib/storage';
-import { EventStream, StreamType } from '../types';
+import { Consumer, EventStream, StreamType } from '../types';
 
 export const buildEventStreamActions = (
     projectId: string | null,
     getStreams: () => EventStream[],
     setStreams: (streams: EventStream[]) => void,
+    setConsumers: (consumers: Consumer[]) => void,
     showToast: (message: string) => void
 ) => {
     const isUnique = (name: string, excludeId: string | null = null) =>
@@ -46,8 +47,9 @@ export const buildEventStreamActions = (
 
     const deleteStream = (id: string) => {
         if (!projectId) return;
-        storage.deleteStream(projectId, id);
+        const data = storage.deleteStream(projectId, id);
         setStreams(getStreams().filter(t => t.id !== id));
+        setConsumers(data.consumers);
     };
 
     return { addStream, updateStream, deleteStream, isStreamNameUnique: isUnique };

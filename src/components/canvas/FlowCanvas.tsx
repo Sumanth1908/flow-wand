@@ -49,7 +49,7 @@ const FlowCanvasInner: React.FC = () => {
 
     const { nodes: initialNodes, edges: initialEdges } = useMemo(
         () => buildGraph({ streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection, nodePositions, edgeRoutings }),
-        [streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection, nodePositions]
+        [streams, consumers, flows, events, activeFlowId, simulation, traceMode, layoutDirection, nodePositions, edgeRoutings]
     );
 
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes as Node[]);
@@ -58,7 +58,7 @@ const FlowCanvasInner: React.FC = () => {
     const [searchOpen, setSearchOpen]      = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
-    const fitViewOptions: FitViewOptions = { padding: 0.3, maxZoom: 1.5 };
+    const fitViewOptions: FitViewOptions = useMemo(() => ({ padding: 0.3, maxZoom: 1.5 }), []);
     const proOptions: ProOptions         = { hideAttribution: true };
     const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -255,7 +255,7 @@ const FlowCanvasInner: React.FC = () => {
 
         prevLayoutRef.current        = layoutDirection;
         prevNodePositionsRef.current = nodePositions;
-    }, [initialNodes, initialEdges, layoutDirection, nodePositions, setNodes, setEdges, fitView, applyTraceToNodes, applyTraceToEdges, applyFocusAndSearch]);
+    }, [initialNodes, initialEdges, layoutDirection, nodePositions, setNodes, setEdges, fitView, fitViewOptions, applyTraceToNodes, applyTraceToEdges, applyFocusAndSearch]);
 
     // fitView on project switch or node count change
     useEffect(() => {
@@ -267,7 +267,7 @@ const FlowCanvasInner: React.FC = () => {
             prevNodeCountRef.current = nodes.length;
             return () => clearTimeout(t);
         }
-    }, [nodes.length, activeProjectId, fitView]);
+    }, [nodes.length, activeProjectId, fitView, fitViewOptions]);
 
     // Keyboard shortcut: Cmd/Ctrl+F to open search, Esc to close
     useEffect(() => {

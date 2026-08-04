@@ -12,13 +12,14 @@ export const buildEventActions = (
     getConsumers: () => Consumer[],
     setConsumers: (consumers: Consumer[]) => void
 ) => {
-    const addEvent = (name: string, description = '', schema = '{}') => {
+    const addEvent = (name: string, description = '', schema = '{}', examplePayload?: string) => {
         if (!projectId) return;
         const event: EventType = {
             id: uuid(),
             name,
             description,
             schema,
+            ...(examplePayload ? { examplePayload } : {}),
         };
         storage.createEvent(projectId, event);
         setEvents([...getEvents(), event]);
@@ -32,16 +33,10 @@ export const buildEventActions = (
 
     const deleteEvent = (id: string) => {
         if (!projectId) return;
-        storage.deleteEvent(projectId, id);
+        const data = storage.deleteEvent(projectId, id);
         setEvents(getEvents().filter(e => e.id !== id));
-        // Cascade: remove eventId from consumers in local state
-        setConsumers(getConsumers().map(c => ({
-            ...c,
-            sources: (c.sources || []).map(s => ({ ...s, eventIds: (s.eventIds || []).filter(x => x !== id) })),
-            sinks: (c.sinks || []).map(s => ({ ...s, eventIds: (s.eventIds || []).filter(x => x !== id) })),
-        })));
+        setConsumers(data.consumers);
     };
 
     return { addEvent, updateEvent, deleteEvent };
 }
-
