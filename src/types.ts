@@ -16,7 +16,18 @@ export type RoutingStrategy = 'broadcast' | 'conditional' | 'failover';
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
-export type ConsumerType = 'default' | 'lambda' | 'service' | 'database';
+export type ConsumerType =
+    | 'default'
+    | 'lambda'
+    | 'service'
+    | 'database'
+    | 'api'
+    | 'worker'
+    | 'gateway'
+    | 'cache'
+    | 'scheduler'
+    | 'container';
+export type ConsumerShape = 'rounded' | 'rectangle' | 'pill' | 'hexagon' | 'bevel' | 'cylinder';
 
 export interface EventStream {
     id: string;
@@ -48,6 +59,7 @@ export interface Consumer {
     name: string;
     description: string;
     type?: ConsumerType;
+    shape?: ConsumerShape;
     sources: StreamConnection[];
     sinks: StreamConnection[];
     routingStrategy?: RoutingStrategy;
@@ -132,6 +144,10 @@ export interface StoreState {
     modalOpen: 'stream' | 'consumer' | 'flow' | 'event' | 'project' | 'confirm' | 'nodeDetails' | 'settings' | 'fireEvent' | 'snapshot' | null;
     editingItem: any | null;
     toastMessage: string | null;
+    recoveryError: string | null;
+    operationError: string | null;
+    exportRecoveryData: () => void;
+    dismissRecoveryError: () => void;
     lastSavedAt: string | null;
     traceMode: boolean;
     edgeStyle: EdgeStyle;
@@ -146,7 +162,7 @@ export interface StoreState {
 
     init: () => void;
     toggleTheme: () => void;
-    createProject: (name: string, description?: string) => Project;
+    createProject: (name: string, description?: string) => Project | null;
     updateProject: (id: string, patch: Partial<Project>) => void;
     deleteProject: (id: string) => void;
     switchProject: (projectId: string) => void;
@@ -165,27 +181,16 @@ export interface StoreState {
     deleteStream: (id: string) => void;
     isStreamNameUnique: (name: string, excludeId?: string | null) => boolean;
 
-    addConsumer: (
-        name: string,
-        description?: string,
-        sources?: StreamConnection[],
-        sinks?: StreamConnection[],
-        routingStrategy?: Consumer['routingStrategy'],
-        failureRate?: number,
-        transformScript?: string,
-        routingRules?: Consumer['routingRules'],
-        type?: ConsumerType,
-        dlqSink?: StreamConnection
-    ) => boolean;
+    addConsumer: (input: Omit<Consumer, 'id'>) => boolean;
     updateConsumer: (id: string, patch: Partial<Consumer>) => boolean;
     deleteConsumer: (id: string) => void;
 
-    addFlow: (name: string, consumerIds: string[], description: string) => void;
-    updateFlow: (id: string, patch: Partial<DataFlow>) => void;
+    addFlow: (name: string, consumerIds: string[], description: string) => boolean;
+    updateFlow: (id: string, patch: Partial<DataFlow>) => boolean;
     deleteFlow: (id: string) => void;
 
-    addEvent: (name: string, description: string, schema: string, examplePayload?: string) => void;
-    updateEvent: (id: string, patch: Partial<EventType>) => void;
+    addEvent: (name: string, description: string, schema: string, examplePayload?: string) => boolean;
+    updateEvent: (id: string, patch: Partial<EventType>) => boolean;
     deleteEvent: (id: string) => void;
 
     startSimulation: (streamId: string, customPayload?: JsonValue | JsonValue[], eventTypeId?: string) => void;

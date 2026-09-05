@@ -30,6 +30,7 @@ const INITIAL_SIM: SimulationState = {
 
 interface QueueItem extends EventEnvelope {
     viaEdge: string | null;
+    visits: Record<string, number>;
 }
 
 interface DispatchTarget {
@@ -41,22 +42,6 @@ interface DispatchTarget {
 interface BuildSimulationOptions {
     random?: () => number;
 }
-
-const isRecord = (value: JsonValue): value is Record<string, JsonValue> =>
-    typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const stableValue = (value: JsonValue): JsonValue => {
-    if (Array.isArray(value)) return value.map(stableValue);
-    if (!isRecord(value)) return value;
-    return Object.fromEntries(
-        Object.keys(value)
-            .filter(key => key !== '_processedBy' && key !== '_processedAt')
-            .sort()
-            .map(key => [key, stableValue(value[key])])
-    );
-};
-
-const fingerprintPayload = (payload: JsonValue): string => JSON.stringify(stableValue(payload));
 
 const connectionTargets = (
     connection: StreamConnection,
@@ -84,7 +69,9 @@ export const buildSimSteps = (
 ): SimulationStep[] => {
     const steps: SimulationStep[] = [];
     const random = options.random ?? Math.random;
-    const globalStepCap = Math.max(maxLoops * 100, 100);
+    const loopLimit = Math.max(1, Math.min(100, Math.floor(maxLoops) || 1));
+    const globalStepCap = 10000;
+    let globalSteps = 0;
 
     for (let payloadIndex = 0; payloadIndex < payloads.length; payloadIndex++) {
         const queue: QueueItem[] = [{
@@ -94,36 +81,37 @@ export const buildSimSteps = (
             path: [startStreamId],
             hopCount: 0,
             viaEdge: null,
+            visits: {},
         }];
-        const visitedStates = new Map<string, number>();
-        const visitedConsumerStates = new Map<string, number>();
-        let globalSteps = 0;
+        let queueIndex = 0;
 
-        while (queue.length > 0) {
+        while (queueIndex < queue.length) {
             if (++globalSteps > globalStepCap) {
                 steps.push({ type: 'warning', message: `⚠️ Safety cap reached after ${globalStepCap} steps.` });
-                break;
+                return steps;
             }
 
-            const item = queue.shift();
+            const item = queue[queueIndex++];
             if (!item) continue;
             const stream = streams.find(candidate => candidate.id === item.streamId);
             if (!stream) continue;
 
-            const stateKey = `${item.streamId}:${item.eventTypeId ?? 'generic'}:${fingerprintPayload(item.payload)}`;
-            const visitCount = visitedStates.get(stateKey) ?? 0;
-            if (visitCount >= maxLoops) {
+            // An event may legitimately converge with an identical event from another branch.
+            // Count visits only along this event's own ancestry, including changing payloads.
+            const stateKey = `stream:${item.streamId}:${item.eventTypeId ?? 'generic'}`;
+            const visitCount = item.visits[stateKey] ?? 0;
+            if (visitCount >= loopLimit) {
                 if (item.viaEdge) steps.push({ type: 'warning', message: '', isCycle: true, id: item.viaEdge });
                 steps.push({
                     type: 'warning',
-                    message: `🔁 Cycle limit reached: stream "${stream.name}" received the same event state ${visitCount + 1} times.`,
+                    message: `🔁 Cycle limit reached: stream "${stream.name}" was visited ${visitCount + 1} times along one event path.`,
                     id: item.streamId,
                     eventTypeId: item.eventTypeId,
                 });
                 continue;
             }
-            visitedStates.set(stateKey, visitCount + 1);
 
+            const visits = { ...item.visits, [stateKey]: visitCount + 1 };
             const event = item.eventTypeId ? events.find(candidate => candidate.id === item.eventTypeId) : undefined;
             const eventLabel = event ? ` [${event.name}]` : '';
             const batchLabel = payloads.length > 1 ? ` [Payload ${payloadIndex + 1}/${payloads.length}]` : '';
@@ -143,10 +131,9 @@ export const buildSimSteps = (
             });
 
             for (const { consumer, source } of matchingConsumers) {
-                const consumerStateKey = `${consumer.id}:${item.eventTypeId ?? 'generic'}:${fingerprintPayload(item.payload)}`;
-                const consumerVisitCount = visitedConsumerStates.get(consumerStateKey) ?? 0;
-                if (consumerVisitCount >= maxLoops) continue;
-                visitedConsumerStates.set(consumerStateKey, consumerVisitCount + 1);
+                const consumerKey = `consumer:${consumer.id}:${item.eventTypeId ?? 'generic'}`;
+                const consumerVisits = visits[consumerKey] ?? 0;
+                if (consumerVisits >= loopLimit) continue;
 
                 let intermediatePayload = item.payload;
                 try {
@@ -233,6 +220,10 @@ export const buildSimSteps = (
                         consumer.name,
                         outputEvent ? [outputEvent] : []
                     );
+                    if (steps.length + queue.length - queueIndex >= globalStepCap) {
+                        steps.push({ type: 'warning', message: `⚠️ Safety cap reached after ${globalStepCap} steps.` });
+                        return steps;
+                    }
                     steps.push({ type: 'edge', from: consumer.id, to: target.sinkId, message: '', eventTypeId: target.eventTypeId });
                     queue.push({
                         streamId: target.sinkId,
@@ -241,6 +232,7 @@ export const buildSimSteps = (
                         path: [...item.path, consumer.id, target.sinkId],
                         hopCount: item.hopCount + 1,
                         viaEdge: `${consumer.id}->${target.sinkId}`,
+                        visits: { ...visits, [consumerKey]: consumerVisits + 1 },
                     });
                 }
 
@@ -307,7 +299,7 @@ export const buildSimulationActions = (
         }
 
         const step = sim.steps[sim.currentStep];
-        const updates: Partial<SimulationState> = { currentStep: sim.currentStep + 1 };
+        const updates: Partial<SimulationState> = { currentStep: sim.currentStep + 1, active: sim.currentStep + 1 < sim.totalSteps };
 
         if (step.type === 'stream' && step.id) {
             updates.currentEdgeId = null;

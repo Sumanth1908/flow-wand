@@ -12,6 +12,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import { Alert, Button } from '@mui/material';
 import { createAppTheme } from './theme';
 
 // ── Toast ──────────────────────────────────────────────────────
@@ -21,6 +22,7 @@ const ToastElement: React.FC = () => {
         <AnimatePresence>
             {msg && (
                 <motion.div
+                    role="status" aria-live="polite"
                     style={{
                         position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
                         padding: '14px 20px', backgroundColor: 'var(--color-bg-elevated, #172035)',
@@ -47,6 +49,10 @@ const App: React.FC = () => {
     const activeProjectId = useStore(s => s.activeProjectId);
     const saveProject = useStore(s => s.saveProject);
     const themeMode = useStore(s => s.theme) as 'light' | 'dark';
+
+    const recoveryError = useStore(s => s.recoveryError);
+    const exportRecoveryData = useStore(s => s.exportRecoveryData);
+    const dismissRecoveryError = useStore(s => s.dismissRecoveryError);
 
     const muiTheme = useMemo(() => createAppTheme(themeMode), [themeMode]);
 
@@ -95,6 +101,13 @@ const App: React.FC = () => {
 
                     <Modal />
                     <ToastElement />
+                    {recoveryError && <Alert severity="error" onClose={dismissRecoveryError}
+                        sx={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1500, maxWidth: 680 }}
+                        action={<Button color="inherit" size="small" onClick={exportRecoveryData}>Download recovery backup</Button>}>
+                        {recoveryError} Your saved data has been preserved. Download a backup before removing the affected project or resetting the app.
+                        <Button size="small" color="inherit" onClick={dismissRecoveryError}>Dismiss</Button>
+                    </Alert>}
+
                 </Box>
             </ReactFlowProvider>
         </ThemeProvider>

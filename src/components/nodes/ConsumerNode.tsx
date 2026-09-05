@@ -1,15 +1,28 @@
-import { memo, useState } from 'react';
+import { CSSProperties, memo, useState } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { motion } from 'framer-motion';
-import { Zap, Server, Database, Braces, Crosshair } from 'lucide-react';
+import {
+    Boxes,
+    Braces,
+    Clock3,
+    Cog,
+    Crosshair,
+    Database,
+    Globe2,
+    Network,
+    Server,
+    Zap,
+} from 'lucide-react';
 import { Paper, Box, Stack, Typography, useTheme, IconButton, Tooltip } from '@mui/material';
 import useStore from '../../store/useStore';
-import { ConsumerType } from '../../types';
+import { ConsumerShape, ConsumerType } from '../../types';
+import { getConsumerTypeLabel, getDefaultConsumerShape } from '../../lib/consumerVisuals';
 
 type ConsumerNodeData = {
     label: string;
     description?: string;
     type?: ConsumerType;
+    shape?: ConsumerShape;
     sourceCount?: number;
     sinkCount?: number;
     simulationState?: 'active' | 'visited' | null;
@@ -37,25 +50,58 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
     // If the edge starts with this consumer's id, it's a sink (amber); otherwise source (indigo)
     const highlightColor = hoveredEdgeId?.startsWith(id) ? '#f59e0b' : '#6366f1';
 
-    const nodeColor = theme.palette.secondary.main;
     const consumerType = data.type || 'default';
+    const consumerShape = data.shape || getDefaultConsumerShape(consumerType);
 
-    // Different shapes based on type
-    const getBorderRadius = () => {
-        switch (consumerType) {
-            case 'lambda': return 16;     // Pill shape
-            case 'service': return 1;     // Sharp rectangle
-            case 'database': return 4;    // Slightly rounded (will use custom top/bottom styling below to look cylindrical)
-            case 'default':
-            default: return 3;            // Standard rounded corner
-        }
+    const typeColors: Record<ConsumerType, string> = {
+        default: theme.palette.secondary.main,
+        service: '#3b82f6',
+        api: '#06b6d4',
+        gateway: '#ec4899',
+        worker: '#10b981',
+        lambda: '#f59e0b',
+        container: '#6366f1',
+        scheduler: '#f97316',
+        database: '#8b5cf6',
+        cache: '#eab308',
     };
+    const nodeColor = typeColors[consumerType];
+
+    const shapeStyle: CSSProperties = (() => {
+        switch (consumerShape) {
+            case 'rectangle': return { borderRadius: '2px' };
+            case 'pill': return { borderRadius: '36px' };
+            case 'hexagon': return { borderRadius: 0 };
+            case 'bevel': return { borderRadius: 0 };
+            case 'cylinder': return { borderRadius: '28px / 16px' };
+            case 'rounded':
+            default: return { borderRadius: '12px' };
+        }
+    })();
+    const polygonClipPath = consumerShape === 'hexagon'
+        ? 'polygon(5% 0, 95% 0, 100% 50%, 95% 100%, 5% 100%, 0 50%)'
+        : consumerShape === 'bevel'
+            ? 'polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px)'
+            : undefined;
+    const isPolygon = Boolean(polygonClipPath);
+    const nodeBackground = theme.palette.mode === 'dark' ? 'rgba(30, 41, 59, 0.96)' : theme.palette.background.paper;
+    const resolvedBorderColor = selected
+        ? nodeColor
+        : isEdgeHighlighted
+            ? highlightColor
+            : (isVisited ? `color-mix(in srgb, ${nodeColor} 30%, ${theme.palette.divider})` : theme.palette.divider);
 
     const getTypeIcon = () => {
         switch (consumerType) {
             case 'lambda': return <Braces size={14} />;
             case 'service': return <Server size={14} />;
             case 'database': return <Database size={14} />;
+            case 'api': return <Globe2 size={14} />;
+            case 'worker': return <Cog size={14} />;
+            case 'gateway': return <Network size={14} />;
+            case 'cache': return <Zap size={14} />;
+            case 'scheduler': return <Clock3 size={14} />;
+            case 'container': return <Boxes size={14} />;
             case 'default':
             default: return <Zap size={14} />;
         }
@@ -105,41 +151,60 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                 sx={{
                     width: 280,
                     minHeight: 140,
-                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(30, 41, 59, 0.7)' : 'background.paper',
+                    bgcolor: isPolygon ? 'transparent' : nodeBackground,
                     backdropFilter: 'blur(12px)',
-                    borderRadius: getBorderRadius(),
-                    border: consumerType === 'database' ? 0 : 1,
-                    borderBottomWidth: consumerType === 'database' ? 6 : 1,
-                    borderTopWidth: consumerType === 'database' ? 6 : 1,
-                    borderColor: selected
-                        ? nodeColor
-                        : isEdgeHighlighted
-                            ? highlightColor
-                            : (isVisited ? `color-mix(in srgb, ${nodeColor} 30%, ${theme.palette.divider})` : 'divider'),
+                    ...shapeStyle,
+                    border: isPolygon ? 0 : 1,
+                    borderBottomWidth: consumerShape === 'cylinder' ? 4 : isPolygon ? 0 : 1,
+                    borderTopWidth: consumerShape === 'cylinder' ? 4 : isPolygon ? 0 : 1,
+                    borderColor: resolvedBorderColor,
                     borderStyle: 'solid',
                     display: 'flex',
                     flexDirection: 'column',
                     transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                     position: 'relative',
-                    overflow: 'hidden', // Clips header to match curved corners
+                    overflow: isPolygon ? 'visible' : 'hidden',
 
-                    boxShadow: isEdgeHighlighted
-                        ? `0 0 0 2px ${highlightColor}33, 0 8px 16px ${highlightColor}22`
-                        : selected
-                            ? `0 0 0 2px ${nodeColor}44, 0 12px 24px color-mix(in srgb, ${nodeColor} 15%, transparent)`
-                            : '0 4px 12px rgba(0,0,0,0.1)',
+                    boxShadow: isPolygon
+                        ? 'none'
+                        : isEdgeHighlighted
+                            ? `0 0 0 2px ${highlightColor}33, 0 8px 16px ${highlightColor}22`
+                            : selected
+                                ? `0 0 0 2px ${nodeColor}44, 0 12px 24px color-mix(in srgb, ${nodeColor} 15%, transparent)`
+                                : '0 4px 12px rgba(0,0,0,0.1)',
+                    filter: isPolygon
+                        ? `drop-shadow(0 4px 6px ${isEdgeHighlighted ? `${highlightColor}44` : 'rgba(0,0,0,0.18)'})`
+                        : 'none',
                     '&:hover': {
                         borderColor: nodeColor,
                         transform: 'translateY(-2px)',
-                        boxShadow: `0 12px 32px rgba(0,0,0,0.2)`
+                        boxShadow: isPolygon ? 'none' : '0 12px 32px rgba(0,0,0,0.2)',
+                        filter: isPolygon ? `drop-shadow(0 10px 14px ${nodeColor}33)` : 'none',
                     },
-                    '&::before': { // Subtle glass glow
+                    '&:hover::before': isPolygon ? { bgcolor: nodeColor } : undefined,
+                    '&::before': {
                         content: '""',
                         position: 'absolute',
                         top: 0, left: 0, right: 0, bottom: 0,
-                        borderRadius: 'inherit',
-                        background: `linear-gradient(135deg, ${nodeColor}11 0%, transparent 40%)`,
+                        borderRadius: isPolygon ? 0 : 'inherit',
+                        clipPath: polygonClipPath,
+                        background: isPolygon
+                            ? resolvedBorderColor
+                            : `linear-gradient(135deg, ${nodeColor}11 0%, transparent 40%)`,
                         pointerEvents: 'none'
+                    },
+                    '&::after': isPolygon ? {
+                        content: '""',
+                        position: 'absolute',
+                        inset: '1.5px',
+                        clipPath: polygonClipPath,
+                        background: `linear-gradient(135deg, color-mix(in srgb, ${nodeColor} 7%, ${nodeBackground}) 0%, ${nodeBackground} 45%)`,
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                    } : undefined,
+                    '& > *': {
+                        position: 'relative',
+                        zIndex: 1,
                     }
                 }}
 
@@ -150,11 +215,12 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                     alignItems="center"
                     spacing={1}
                     sx={{
-                        px: 2,
+                        px: consumerShape === 'hexagon' ? 3.5 : consumerShape === 'pill' ? 3 : 2,
                         py: 1,
                         borderBottom: 1,
                         borderColor: 'divider',
-                        bgcolor: `color-mix(in srgb, ${nodeColor} 8%, ${theme.palette.background.default})`,
+                        bgcolor: isPolygon ? 'transparent' : `color-mix(in srgb, ${nodeColor} 8%, ${theme.palette.background.default})`,
+                        mx: isPolygon ? 2 : 0,
                         opacity: isVisited && !isActive && !selected ? 0.7 : 1
                     }}
                 >
@@ -168,13 +234,14 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                         {getTypeIcon()}
                     </Box>
                     <Typography variant="caption" fontWeight="900" sx={{ opacity: 0.7, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.5 }}>
-                        {consumerType === 'default' ? 'Consumer' : consumerType}
+                        {getConsumerTypeLabel(consumerType)}
                     </Typography>
                 </Stack>
 
                 {/* Node Body */}
                 <Box sx={{
-                    p: 2.5,  // Increased padding
+                    py: 2.5,
+                    px: consumerShape === 'hexagon' ? 4 : consumerShape === 'pill' ? 3.5 : 2.5,
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
@@ -283,7 +350,9 @@ const ConsumerNode = memo(({ id, data, selected }: NodeProps<Node<ConsumerNodeDa
                     transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
                     style={{
                         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                        border: `4px solid ${nodeColor}`, borderRadius: 12,
+                        border: `4px solid ${nodeColor}`,
+                        ...shapeStyle,
+                        clipPath: polygonClipPath,
                         pointerEvents: 'none', zIndex: -1
                     }}
                 />

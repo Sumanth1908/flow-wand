@@ -50,7 +50,7 @@ describe('storage integrity', () => {
         expect(data.consumers[0].sources[0].eventIds).toEqual([]);
         expect(data.consumers[0].sinks[0].eventIds).toEqual([]);
         expect(data.consumers[0].dlqSink?.eventIds).toEqual([]);
-        expect(data.consumers[0].routingRules?.[0]).toMatchObject({ sourceEventId: undefined, outputEventId: undefined, eventIds: [] });
+        expect(data.consumers[0].routingRules).toEqual([]);
     });
 
     it('clears only FlowWand-owned local storage keys', () => {
@@ -76,4 +76,51 @@ describe('storage integrity', () => {
         expect(JSON.parse(migrated.schema)).toMatchObject({ type: 'object', properties: { id: { format: 'uuid' } } });
         expect(JSON.parse(migrated.examplePayload || '')).toEqual({ id: 'uuid' });
     });
+});
+
+it.each([
+    { streams: [{ id: 'bad' }], consumers: [], flows: [], events: [] },
+    { streams: [{ ...stream, type: 'invalid' }], consumers: [], flows: [], events: [] },
+    { streams: [stream, stream], consumers: [], flows: [], events: [] },
+    { streams: [stream], consumers: [{ ...consumer, sources: [{ streamId: 'missing', eventIds: [] }] }], flows: [], events: [] },
+    { streams: [], consumers: [], flows: [], events: [{ ...event, schema: 'broken' }] },
+    { streams: [stream], consumers: [], flows: [], events: [], nodePositions: { stream: { x: 'bad', y: 2 } } },
+])('rejects invalid imports before writing anything', data => {
+    const before = localStorage.getItem('fw_projects');
+    expect(() => storage.importProject({ version: 1, project: { ...project, id: 'invalid' }, data })).toThrow();
+    expect(localStorage.getItem('fw_projects')).toBe(before);
+    expect(localStorage.getItem('fw_proj_invalid')).toBeNull();
+});
+
+it('rejects future bundle versions without changing storage', () => {
+    expect(() => storage.importProject({ ...storage.exportProject(project.id), version: 999 })).toThrow('unsupported');
+    expect(storage.getProjects()).toHaveLength(1);
+});
+
+it('rolls back the project data if saving the project index fails', () => {
+    const originalData = localStorage.getItem('fw_proj_project');
+    const originalIndex = localStorage.getItem('fw_projects');
+    const setItem = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = (key, value) => { if (key === 'fw_projects') throw new Error('quota'); setItem(key, value); };
+    expect(() => storage.saveProjectSnapshot({ ...project, name: 'Changed' }, { streams: [], consumers: [], flows: [], events: [] })).toThrow();
+    expect(localStorage.getItem('fw_proj_project')).toBe(originalData);
+    expect(localStorage.getItem('fw_projects')).toBe(originalIndex);
+});
+
+it('migrates legacy topic/job connections on import', () => {
+    const imported = storage.importProject({ project: { ...project, id: 'legacy' }, data: {
+        topics: [{ ...stream, id: 'topic' }], flinkJobs: [{ id: 'job', name: 'Job', sourceTopics: ['topic'], sinkTopics: [] }],
+        flows: [{ id: 'flow', name: 'Flow', jobIds: ['job'] }],
+    } });
+    const data = storage.getProjectData(imported.id);
+    expect(data.consumers[0].sources).toEqual([{ streamId: 'topic', eventIds: [] }]);
+    expect(data.flows[0].consumerIds).toEqual(['job']);
+});
+
+it('exports only FlowWand-owned raw keys for recovery', () => {
+    localStorage.setItem('fw_proj_broken', '{broken');
+    localStorage.setItem('another_app', 'private');
+    const recovery = storage.exportRecoveryData();
+    expect(recovery.fw_proj_broken).toBe('{broken');
+    expect(recovery.another_app).toBeUndefined();
 });

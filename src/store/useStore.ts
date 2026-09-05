@@ -5,18 +5,16 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
 import * as storage from '../lib/storage';
-import { buildEventStreamActions } from '../hooks/useEventStreams';
-import { buildConsumerActions } from '../hooks/useConsumers';
-import { buildFlowActions } from '../hooks/useFlows';
-import { buildEventActions } from '../hooks/useEvents';
 import { buildSimulationActions, INITIAL_SIM } from '../hooks/useSimulation';
-import { useEventGeneration } from '../hooks/useEventGeneration';
-import { StoreState, EventStream, Consumer, DataFlow, EventType, Project, EdgeStyle, EdgeShape, LayoutDirection, EdgePathStyle } from '../types';
+import { mergePayloadWithEventSchema } from '../lib/eventSchema';
+import { buildProjectActions, projectSnapshot } from './projectActions';
+import { ProjectData, emptyProjectData } from '../domain/project';
+import { validateProjectData } from '../domain/validation';
+import { StoreState, Project, EdgeStyle, EdgeShape, LayoutDirection, EdgePathStyle } from '../types';
 import { DEMO_DATA } from '../lib/demoData';
 
 const useStore = create<StoreState>((set, get) => {
-    // Generate event payload hook dependency map
-    const generatorDeps = useEventGeneration();
+    const generatorDeps = { generateEventPayload: mergePayloadWithEventSchema };
     const simActions = buildSimulationActions(get, set, generatorDeps);
 
     let _toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -26,20 +24,38 @@ const useStore = create<StoreState>((set, get) => {
         _toastTimer = setTimeout(() => set({ toastMessage: null }), 3000);
     };
 
-    const getStreams = () => get().streams;
-    const setStreams = (s: EventStream[]) => set({ streams: s });
-    const getConsumers = () => get().consumers;
-    const setConsumers = (c: Consumer[]) => set({ consumers: c });
-    const getFlows = () => get().flows;
-    const setFlows = (f: DataFlow[]) => set({ flows: f });
-    const getEvents = () => get().events;
-    const setEvents = (e: EventType[]) => set({ events: e });
-    const getProjId = () => get().activeProjectId;
-
-    const streamActions = () => buildEventStreamActions(getProjId(), getStreams, setStreams, setConsumers, showToast);
-    const consumerActions = () => buildConsumerActions(getProjId(), getConsumers, setConsumers, getFlows, setFlows);
-    const flowActions = () => buildFlowActions(getProjId(), getFlows, setFlows);
-    const eventActions = () => buildEventActions(getProjId(), getEvents, setEvents, getConsumers, setConsumers);
+    const attempt = <T,>(operation: () => T): T | null => {
+        try { return operation(); }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            set({ operationError: message });
+            showToast(message);
+            return null;
+        }
+    };
+    const commit = (data: ProjectData): boolean => {
+        const state = get(), project = state.projects.find(p => p.id === state.activeProjectId);
+        if (!project) return false;
+        return attempt(() => {
+            validateProjectData(data);
+            const now = new Date().toISOString();
+            const projects = storage.saveProjectSnapshot({ ...project, lastSavedAt: now }, data);
+            set({ ...data, operationError: null, nodePositions: data.nodePositions ?? {}, edgeRoutings: data.edgeRoutings ?? {}, projects, lastSavedAt: now,
+                activeFlowId: data.flows.some(f => f.id === state.activeFlowId) ? state.activeFlowId : null });
+            return true;
+        }) ?? false;
+    };
+    const projectActions = buildProjectActions(get, commit);
+    const savePrefs = (patch: Partial<ReturnType<typeof storage.getPrefs>>) =>
+        attempt(() => { storage.savePrefs({ ...storage.getPrefs(), ...patch }); return true; });
+    const activate = (project: Project, data: ProjectData) => {
+        set({ ...data, activeProjectId: project.id, activeFlowId: null,
+            nodePositions: data.nodePositions ?? {}, edgeRoutings: data.edgeRoutings ?? {},
+            lastSavedAt: project.lastSavedAt ?? null, selectedNodeId: null,
+            focusedConsumerId: null, hoveredEdgeId: null, canvasSearchQuery: '', modalOpen: null, editingItem: null });
+        get().clearSimulation();
+        savePrefs({ activeProjectId: project.id });
+    };
 
     return {
         // ── Initial state ────────────────────────────────────────
@@ -59,6 +75,10 @@ const useStore = create<StoreState>((set, get) => {
         modalOpen: null,
         editingItem: null,
         toastMessage: null,
+        recoveryError: null,
+        operationError: null,
+        dismissRecoveryError: () => set({ recoveryError: null }),
+        exportRecoveryData: () => { attempt(() => downloadJson(storage.exportRecoveryData(), `flowwand-recovery-${Date.now()}.json`)); },
         lastSavedAt: null,
         traceMode: false,
         edgeStyle: 'solid',
@@ -74,7 +94,9 @@ const useStore = create<StoreState>((set, get) => {
         // ── App init ─────────────────────────────────────────────
         init: () => {
             const prefs = storage.getPrefs();
-            const projects = storage.getProjects();
+            let projects: Project[] = [];
+            try { projects = storage.getProjects(); }
+            catch (error) { set({ recoveryError: error instanceof Error ? error.message : String(error) }); showToast('Saved project list is damaged. Download a recovery backup before resetting.'); }
             const theme = (prefs.theme as 'dark' | 'light') || 'dark';
             const edgeStyle = (prefs.edgeStyle as EdgeStyle) || 'solid';
             const edgeShape = (prefs.edgeShape as EdgeShape) || 'circle';
@@ -91,92 +113,57 @@ const useStore = create<StoreState>((set, get) => {
         toggleTheme: () => {
             const next = get().theme === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', next);
-            storage.savePrefs({ ...storage.getPrefs(), theme: next });
+            savePrefs({ theme: next });
             set({ theme: next });
         },
 
         // ── Projects ─────────────────────────────────────────────
-        createProject: (name, description = '') => {
+        createProject: (name, description = '') => attempt(() => {
             const project: Project = { id: uuid(), name, description, createdAt: new Date().toISOString() };
             storage.createProject(project);
-            storage.savePrefs({ ...storage.getPrefs(), activeProjectId: project.id });
-            set(s => ({
-                projects: [...s.projects, project],
-                activeProjectId: project.id,
-                streams: [], consumers: [], flows: [], events: [],
-                activeFlowId: null, lastSavedAt: null, nodePositions: {}, edgeRoutings: {},
-            }));
+            set(s => ({ projects: [...s.projects, project] }));
+            activate(project, emptyProjectData());
             return project;
-        },
-
-        updateProject: (id, patch) => {
+        }),
+        updateProject: (id, patch) => { attempt(() => {
             storage.updateProject(id, patch);
-            set(s => ({ projects: s.projects.map(p => p.id === id ? { ...p, ...patch } : p) }));
-        },
-
-        deleteProject: (id) => {
+            set({ projects: storage.getProjects() });
+        }); },
+        deleteProject: id => { attempt(() => {
             storage.deleteProject(id);
-            const remaining = get().projects.filter(p => p.id !== id);
-            set({ projects: remaining });
+            const projects = get().projects.filter(p => p.id !== id);
+            set({ projects });
             if (get().activeProjectId === id) {
-                if (remaining.length > 0) {
-                    get().switchProject(remaining[0].id);
-                } else {
-                    storage.savePrefs({ ...storage.getPrefs(), activeProjectId: null });
-                    set({ activeProjectId: null, streams: [], consumers: [], flows: [], events: [], activeFlowId: null });
-                }
+                set({ ...emptyProjectData(), nodePositions: {}, edgeRoutings: {}, activeProjectId: null, activeFlowId: null, lastSavedAt: null,
+                    focusedConsumerId: null, selectedNodeId: null, hoveredEdgeId: null });
+                get().clearSimulation();
+                savePrefs({ activeProjectId: null });
+                if (projects[0]) get().switchProject(projects[0].id);
             }
-        },
-
-        switchProject: (projectId) => {
-            const data = storage.getProjectData(projectId);
-            const project = storage.getProjects().find(p => p.id === projectId);
-            storage.savePrefs({ ...storage.getPrefs(), activeProjectId: projectId });
-            set({
-                activeProjectId: projectId,
-                streams: data.streams || [],
-                consumers: data.consumers || [],
-                flows: data.flows || [],
-                events: data.events || [],
-                activeFlowId: null,
-                lastSavedAt: project?.lastSavedAt || null,
-                nodePositions: data.nodePositions || {},
-                edgeRoutings: data.edgeRoutings || {},
-            });
-            get().clearSimulation();
+        }); },
+        switchProject: projectId => {
+            try {
+                const project = get().projects.find(p => p.id === projectId);
+                if (!project) throw new Error('Project not found');
+                activate(project, storage.getProjectData(projectId));
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                set({ recoveryError: message });
+                showToast(message);
+            }
         },
 
         // ── Save / Export / Import ───────────────────────────────
         saveProject: () => {
-            const id = get().activeProjectId;
-            if (!id) return;
-            const now = new Date().toISOString();
-            storage.updateProject(id, { lastSavedAt: now });
-
-            // Ensure node positions are also persisted in the project data blob
-            const data = storage.getProjectData(id);
-            data.nodePositions = get().nodePositions;
-            data.edgeRoutings = get().edgeRoutings;
-            storage.saveProjectData(id, data);
-
-            set({ lastSavedAt: now, projects: storage.getProjects() });
-            showToast('Saved to browser ✓');
+            if (commit(projectSnapshot(get()))) showToast('Saved to browser ✓');
         },
-
-        updateNodePositions: (positions) => {
-            set(s => ({ nodePositions: { ...s.nodePositions, ...positions } }));
+        updateNodePositions: positions => {
+            commit({ ...projectSnapshot(get()), nodePositions: { ...get().nodePositions, ...positions } });
         },
-
         updateEdgeRouting: (edgeId, point) => {
-            set(s => {
-                const next = { ...s.edgeRoutings };
-                if (point === null) {
-                    delete next[edgeId];
-                } else {
-                    next[edgeId] = point;
-                }
-                return { edgeRoutings: next };
-            });
+            const next = { ...get().edgeRoutings };
+            if (point === null) delete next[edgeId]; else next[edgeId] = point;
+            commit({ ...projectSnapshot(get()), edgeRoutings: next });
         },
 
         setHoveredEdge: (id) => set({ hoveredEdgeId: id }),
@@ -184,76 +171,29 @@ const useStore = create<StoreState>((set, get) => {
         setCanvasSearchQuery: (query) => set({ canvasSearchQuery: query }),
 
         resetLayout: () => {
-            set({ nodePositions: {}, edgeRoutings: {} });
-            const id = get().activeProjectId;
-            if (id) {
-                const data = storage.getProjectData(id);
-                data.nodePositions = {};
-                data.edgeRoutings = {};
-                storage.saveProjectData(id, data);
-            }
-            showToast('Layout reset to default ✓');
+            if (commit({ ...projectSnapshot(get()), nodePositions: {}, edgeRoutings: {} })) showToast('Layout reset to default ✓');
         },
-
-        exportProject: () => {
+        exportProject: () => { attempt(() => {
             const id = get().activeProjectId;
             if (!id) return;
-            const exported = storage.exportProject(id);
-            if (!exported.project) {
-                showToast('Export failed: Project not found');
-                return;
-            }
-            _downloadJson(exported, `flowwand-${_slug(exported.project.name)}-${Date.now()}.json`);
+            const exported = storage.exportProject(id, projectSnapshot(get()));
+            if (!exported.project) throw new Error('Export failed: Project not found');
+            downloadJson(exported, `flowwand-${_slug(exported.project.name)}-${Date.now()}.json`);
             showToast('Project exported as JSON');
+        }); },
+        importProject: async file => {
+            try {
+                const project = storage.importProject(JSON.parse(await file.text()));
+                set({ projects: storage.getProjects() });
+                activate(project, storage.getProjectData(project.id));
+                showToast(`Imported "${project.name}" ✓`);
+                return project;
+            } catch (error) {
+                showToast(`Import failed: ${error instanceof Error ? error.message : String(error)}`);
+                throw error;
+            }
         },
-
-        importProject: (file) => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = e => {
-                try {
-                    const bundle = JSON.parse(e.target?.result as string);
-                    if (!bundle.project || !bundle.data) throw new Error('Invalid file format');
-                    const project = storage.importProject(bundle);
-                    set({ projects: storage.getProjects() });
-                    get().switchProject(project.id);
-                    showToast(`Imported "${project.name}" ✓`);
-                    resolve(project);
-                } catch (err: any) {
-                    showToast(`Import failed: ${err.message}`);
-                    reject(err);
-                }
-            };
-            reader.readAsText(file);
-        }),
-
-        // ── Stream actions ─────────────────────────────────────────
-        addStream: (...a) => streamActions().addStream(...a),
-        updateStream: (...a) => streamActions().updateStream(...a),
-        deleteStream: (id) => {
-            streamActions().deleteStream(id);
-            set(state => ({
-                nodePositions: Object.fromEntries(Object.entries(state.nodePositions).filter(([nodeId]) => nodeId !== id)),
-                edgeRoutings: Object.fromEntries(Object.entries(state.edgeRoutings).filter(([edgeId]) =>
-                    !edgeId.startsWith(`${id}->`) && !edgeId.endsWith(`->${id}`)
-                )),
-            }));
-        },
-        isStreamNameUnique: (n, x) => streamActions().isStreamNameUnique(n, x),
-
-        // ── Consumer actions ─────────────────────────────────────
-        addConsumer: (...a) => consumerActions().addConsumer(...a),
-        updateConsumer: (...a) => consumerActions().updateConsumer(...a),
-        deleteConsumer: (...a) => consumerActions().deleteConsumer(...a),
-
-        // ── Flow actions ──────────────────────────────────────────
-        addFlow: (...a) => flowActions().addFlow(...a),
-        updateFlow: (...a) => flowActions().updateFlow(...a),
-        deleteFlow: (...a) => flowActions().deleteFlow(...a),
-
-        // ── Event actions ─────────────────────────────────────────
-        addEvent: (...a) => eventActions().addEvent(...a),
-        updateEvent: (...a) => eventActions().updateEvent(...a),
-        deleteEvent: (...a) => eventActions().deleteEvent(...a),
+        ...projectActions,
 
         // ── Simulation ────────────────────────────────────────────
         ...simActions,
@@ -264,62 +204,49 @@ const useStore = create<StoreState>((set, get) => {
         setActiveFlow: (id) => set({ activeFlowId: id }),
         setLeftSidebar: (open) => set({ leftSidebarOpen: open }),
         setRightSidebar: (open) => set({ rightSidebarOpen: open }),
-        openModal: (type, item = null) => set({ modalOpen: type, editingItem: item }),
+        openModal: (type, item = null) => set({ modalOpen: type, editingItem: item, operationError: null }),
         closeModal: () => set({ modalOpen: null, editingItem: null }),
         setSelectedNode: (id) => set({ selectedNodeId: id }),
         setTraceMode: (enabled) => set({ traceMode: enabled }),
         setEdgeStyle: (style) => {
-            storage.savePrefs({ ...storage.getPrefs(), edgeStyle: style });
+            savePrefs({ edgeStyle: style });
             set({ edgeStyle: style });
         },
         setEdgeShape: (shape) => {
-            storage.savePrefs({ ...storage.getPrefs(), edgeShape: shape });
+            savePrefs({ edgeShape: shape });
             set({ edgeShape: shape });
         },
         setLayoutDirection: (layout) => {
-            storage.savePrefs({ ...storage.getPrefs(), layoutDirection: layout });
-            set({ layoutDirection: layout, nodePositions: {} });
+            if (get().activeProjectId && !commit({ ...projectSnapshot(get()), nodePositions: {}, edgeRoutings: {} })) return;
+            savePrefs({ layoutDirection: layout });
+            set({ layoutDirection: layout });
         },
         setEdgePathStyle: (style) => {
-            storage.savePrefs({ ...storage.getPrefs(), edgePathStyle: style });
+            savePrefs({ edgePathStyle: style });
             set({ edgePathStyle: style });
         },
 
-        loadDemo: () => {
-            const project = get().createProject('E-Commerce Demo', 'Sample order processing pipeline with Kafka streams, consumers, and event-driven flows');
-            const id = project.id;
-            storage.saveProjectData(id, {
-                streams: DEMO_DATA.streams,
-                consumers: DEMO_DATA.consumers,
-                flows: DEMO_DATA.flows,
-                events: DEMO_DATA.events,
-            });
-            get().switchProject(id);
+        loadDemo: () => { attempt(() => {
+            const project: Project = { id: uuid(), name: 'E-Commerce Demo', description: 'Sample event processing pipeline', createdAt: new Date().toISOString() };
+            const data = validateProjectData(DEMO_DATA);
+            const projects = storage.saveProjectSnapshot(project, data);
+            set({ projects });
+            activate(project, data);
             showToast('Demo project loaded 🚀');
-        },
-
-        resetApp: () => {
+        }); },
+        resetApp: () => { attempt(() => {
             storage.clearAppData();
-            set({
-                projects: [],
-                activeProjectId: null,
-                streams: [],
-                consumers: [],
-                flows: [],
-                events: [],
-                activeFlowId: null,
-                simulation: { ...get().simulation, active: false, eventLog: [], visitedStreamIds: [], visitedConsumerIds: [], activeEdgeIds: [] },
-                lastSavedAt: null,
-                nodePositions: {},
-                edgeRoutings: {},
-            });
+            set({ ...emptyProjectData(), projects: [], activeProjectId: null, activeFlowId: null,
+                lastSavedAt: null, nodePositions: {}, edgeRoutings: {}, focusedConsumerId: null,
+                hoveredEdgeId: null, selectedNodeId: null, canvasSearchQuery: '', recoveryError: null });
+            get().clearSimulation();
             showToast('Application reset to fresh state 🧹');
-        },
+        }); },
     };
 });
 
 const _slug = (str: string) => str.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-const _downloadJson = (data: any, filename: string) => {
+export const downloadJson = (data: unknown, filename: string) => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     const a = Object.assign(document.createElement('a'), { href: url, download: filename });
     a.click();

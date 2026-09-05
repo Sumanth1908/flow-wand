@@ -102,7 +102,7 @@ const Sidebar: React.FC = () => {
 
     const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) importProject(file);
+        if (file) void importProject(file).catch(() => { /* Store displays the import error. */ });
         e.target.value = '';
     };
 
@@ -168,7 +168,7 @@ const Sidebar: React.FC = () => {
                 </Button>
                 <Stack direction="row" spacing={0.5}>
                     <Tooltip title="Save project"><IconButton size="small" color="success" onClick={saveProject}><Save size={16} /></IconButton></Tooltip>
-                    <Tooltip title="Export JSON"><IconButton size="small" onClick={exportProject}><Download size={16} /></IconButton></Tooltip>
+                    <Tooltip title="Export JSON"><IconButton size="small" aria-label="Export project" onClick={exportProject}><Download size={16} /></IconButton></Tooltip>
                     <Tooltip title="Import JSON"><IconButton size="small" onClick={() => fileInputRef.current?.click()}><Upload size={16} /></IconButton></Tooltip>
                     <input type="file" ref={fileInputRef} onChange={handleImport} style={{ display: 'none' }} accept=".json" />
                 </Stack>

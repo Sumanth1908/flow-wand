@@ -172,7 +172,7 @@ const SimulationDrawer: React.FC = () => {
                             </Tooltip>
                         </Stack>
                         <Stack direction="row" spacing={1} alignItems="center">
-                            <IconButton onClick={() => setRightSidebar(false)} size="small" sx={{ color: 'text.secondary' }}>
+                            <IconButton aria-label="Close execution trace" onClick={() => setRightSidebar(false)} size="small" sx={{ color: 'text.secondary' }}>
                                 <X size={20} />
                             </IconButton>
                         </Stack>

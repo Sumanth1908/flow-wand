@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { X, BookOpen, Zap, GitBranch, FolderOpen, Radio, TriangleAlert, Settings2, Send, Camera } from 'lucide-react';
 import useStore from '../../store/useStore';
-import { Dialog, DialogTitle, DialogContent, IconButton, Stack, Typography, Box, CircularProgress } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, IconButton, Stack, Typography, Box, CircularProgress, Alert } from '@mui/material';
 
 const StreamForm = lazy(() => import('./StreamForm'));
 const ConsumerForm = lazy(() => import('./ConsumerForm'));
@@ -34,6 +34,7 @@ const Modal: React.FC = () => {
     const modalOpen = useStore(s => s.modalOpen);
     const editingItem = useStore(s => s.editingItem);
     const closeModal = useStore(s => s.closeModal);
+    const operationError = useStore(s => s.operationError);
 
     const open = Boolean(modalOpen);
 
@@ -70,6 +71,7 @@ const Modal: React.FC = () => {
             <DialogContent sx={{ p: 3, pt: 3 }}>
                 <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={28} /></Box>}>
                 <Box sx={{ mt: 1 }}>
+                    {operationError && <Alert severity="error" sx={{ mb: 2 }}>{operationError}</Alert>}
                     {modalOpen === 'stream' && <StreamForm color={color} />}
                     {modalOpen === 'consumer' && <ConsumerForm color={color} />}
                     {modalOpen === 'flow' && <FlowForm color={color} />}

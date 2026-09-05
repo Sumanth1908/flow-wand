@@ -75,3 +75,33 @@ describe('buildSimSteps', () => {
         expect(steps).toContainEqual(expect.objectContaining({ type: 'warning', message: expect.stringContaining('Cycle limit reached') }));
     });
 });
+
+it('delivers both independent branches at a shared downstream stream and consumer', () => {
+    const consumers: Consumer[] = ['left', 'right'].map(id => ({
+        id, name: id, description: '', sources: [{ streamId: 'source', eventIds: ['one'] }], sinks: [{ streamId: 'sink', eventIds: ['one'] }],
+    }));
+    consumers.push({ id: 'downstream', name: 'downstream', description: '', sources: [{ streamId: 'sink', eventIds: ['one'] }], sinks: [] });
+    const steps = buildSimSteps('source', streams, consumers, events, [{}], 'one', 1, generate);
+    expect(steps.filter(s => s.type === 'stream' && s.id === 'sink')).toHaveLength(2);
+    expect(steps.filter(s => s.type === 'consumer' && s.id === 'downstream')).toHaveLength(2);
+    expect(steps.filter(s => s.isCycle)).toHaveLength(0);
+});
+
+it('bounds a cycle even when every iteration changes the payload', () => {
+    const consumers: Consumer[] = [{ id: 'loop', name: 'loop', description: '',
+        sources: [{ streamId: 'source', eventIds: ['one'] }], sinks: [{ streamId: 'source', eventIds: ['one'] }],
+        transformScript: 'payload.count = payload.count + 1;',
+    }];
+    const steps = buildSimSteps('source', streams, consumers, events, [{ count: 0 }], 'one', 2, generate);
+    expect(steps.filter(s => s.type === 'consumer')).toHaveLength(2);
+    expect(steps.some(s => s.isCycle)).toBe(true);
+});
+
+it('allows an event to change type and revisit a stream before enforcing its cycle limit', () => {
+    const consumers: Consumer[] = [{ id: 'change', name: 'change', description: '',
+        sources: [{ streamId: 'source', eventIds: ['one'] }], sinks: [{ streamId: 'source', eventIds: ['two'] }],
+    }, { id: 'receive-two', name: 'receive-two', description: '', sources: [{ streamId: 'source', eventIds: ['two'] }], sinks: [] }];
+    const steps = buildSimSteps('source', streams, consumers, events, [{}], 'one', 1, generate);
+    expect(steps.filter(s => s.type === 'consumer').map(s => s.id)).toEqual(['change', 'receive-two']);
+    expect(steps.some(s => s.isCycle)).toBe(false);
+});

@@ -3,6 +3,11 @@ import useStore from '../../store/useStore';
 import { EventStream, Consumer } from '../../types';
 import { BookOpen } from 'lucide-react';
 import { Box, Typography, Stack, Button, Chip } from '@mui/material';
+import {
+    getConsumerShapeLabel,
+    getConsumerTypeLabel,
+    getDefaultConsumerShape,
+} from '../../lib/consumerVisuals';
 
 interface Props {
     color: string;
@@ -85,6 +90,21 @@ const NodeDetailsModal: React.FC<Props> = ({ color }) => {
                     <Box>
                         <Label>Consumer Name</Label>
                         <Typography variant="h6" fontWeight="bold">{consumer.name}</Typography>
+                    </Box>
+
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                        <Box>
+                            <Label>Service Type</Label>
+                            <Typography variant="body2" fontWeight={600}>
+                                {getConsumerTypeLabel(consumer.type || 'default')}
+                            </Typography>
+                        </Box>
+                        <Box>
+                            <Label>Shape</Label>
+                            <Typography variant="body2" fontWeight={600}>
+                                {getConsumerShapeLabel(consumer.shape || getDefaultConsumerShape(consumer.type || 'default'))}
+                            </Typography>
+                        </Box>
                     </Box>
 
                     <Box>

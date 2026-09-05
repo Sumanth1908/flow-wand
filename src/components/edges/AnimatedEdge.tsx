@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BaseEdge, getBezierPath, getStraightPath, getSmoothStepPath, EdgeLabelRenderer, EdgeProps, useReactFlow } from '@xyflow/react';
 import useStore from '../../store/useStore';
 
@@ -131,6 +131,9 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
     const { screenToFlowPosition } = useReactFlow();
 
     const [isDragging, setIsDragging] = useState(false);
+    const [dragPoint, setDragPoint] = useState<{ cx: number; cy: number } | null>(null);
+    const cleanupDrag = useRef<(() => void) | null>(null);
+    useEffect(() => () => cleanupDrag.current?.(), []);
 
     // Hovered if: globally flagged OR mid-drag (mouse may have left the hit area)
     const isHovered = hoveredEdgeId === id || isDragging;
@@ -140,10 +143,8 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
     };
 
     let edgePath, labelX, labelY;
-    const anyEdgeData = data as any;
-    // We override routing through Zustand directly in the component so it stays completely real-time without re-firing buildGraph
-    const globalRoutings = useStore(s => s.edgeRoutings);
-    const routingPoint = globalRoutings[id] || (anyEdgeData?.routing as { cx: number, cy: number } | undefined);
+    const savedRouting = useStore(s => s.edgeRoutings[id]);
+    const routingPoint = dragPoint ?? savedRouting;
 
     if (routingPoint) {
         // routingPoint.cx/cy is the desired midpoint ON the curve at t=0.5.
@@ -205,7 +206,7 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
                     stroke: strokeColor,
                     strokeWidth,
                     strokeDasharray: dashArray,
-                    opacity: (isVisited || isWarning) && !isActive ? 0.6 : 1,
+                    opacity: style?.opacity ?? ((isVisited || isWarning) && !isActive ? 0.6 : 1),
                     filter: edgeFilter,
                     transition: 'stroke 0.2s, stroke-width 0.2s, filter 0.2s, opacity 0.3s',
                 }}
@@ -246,18 +247,29 @@ const AnimatedEdge: React.FC<EdgeProps> = ({
                         setIsDragging(true);
                         document.body.style.cursor = 'grabbing';
 
-                        const handlePointerMove = (evt: PointerEvent) => {
-                            const fp = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
-                            updateEdgeRouting(id, { cx: fp.x, cy: fp.y });
-                        };
-                        const handlePointerUp = () => {
+                        let point: { cx: number; cy: number } | null = null;
+                        const cleanup = () => {
                             window.removeEventListener('pointermove', handlePointerMove);
                             window.removeEventListener('pointerup', handlePointerUp);
-                            setIsDragging(false);
+                            window.removeEventListener('pointercancel', cancel);
                             document.body.style.cursor = '';
+                            cleanupDrag.current = null;
                         };
+                        const handlePointerMove = (evt: PointerEvent) => {
+                            const fp = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
+                            point = { cx: fp.x, cy: fp.y };
+                            setDragPoint(point);
+                        };
+                        const cancel = () => { cleanup(); setIsDragging(false); setDragPoint(null); };
+                        const handlePointerUp = () => {
+                            if (point) updateEdgeRouting(id, point);
+                            cancel();
+                        };
+                        cleanupDrag.current?.();
+                        cleanupDrag.current = cleanup;
                         window.addEventListener('pointermove', handlePointerMove);
                         window.addEventListener('pointerup', handlePointerUp);
+                        window.addEventListener('pointercancel', cancel);
                     }}
                     onDoubleClick={(e) => {
                         e.stopPropagation();

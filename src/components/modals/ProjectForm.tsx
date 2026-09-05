@@ -17,7 +17,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ color }) => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
-        createProject(name.trim(), desc.trim());
+        if (!createProject(name.trim(), desc.trim())) return;
         closeModal();
     };
 

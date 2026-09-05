@@ -16,11 +16,7 @@ export interface BuildGraphParams {
     flows: DataFlow[];
     events?: EventType[];
     activeFlowId: string | null;
-    simulation: SimulationState;
-    traceMode?: boolean;
     layoutDirection?: string;
-    nodePositions?: Record<string, { x: number, y: number }>;
-    edgeRoutings?: Record<string, { cx: number, cy: number }>;
 }
 
 // ── Dimensions that match the actual rendered card size ──────────
@@ -101,7 +97,7 @@ const consumerSimState = (consumerId: string, sim: SimulationState) => {
 // ─── Main Graph Builder ──────────────────────────────────────────
 export const buildGraph = ({
     streams, consumers, flows, events = [], activeFlowId,
-    simulation, traceMode, layoutDirection = 'LR', nodePositions, edgeRoutings
+    layoutDirection = 'LR'
 }: BuildGraphParams): { nodes: Node[], edges: Edge[] } => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
@@ -131,7 +127,7 @@ export const buildGraph = ({
         data: {
             label: t.name, type: t.type,
             partitions: t.partitions, description: t.description,
-            simulationState: streamSimState(t.id, simulation),
+            simulationState: 'idle',
         },
     }));
 
@@ -140,10 +136,10 @@ export const buildGraph = ({
         id: j.id, type: 'consumer',
         position: { x: 0, y: 0 },
         data: {
-            label: j.name, description: j.description, type: j.type,
+            label: j.name, description: j.description, type: j.type, shape: j.shape,
             sourceCount: (j.sources || []).length,
             sinkCount: (j.sinks || []).length,
-            simulationState: consumerSimState(j.id, simulation),
+            simulationState: 'idle',
             sourceEvents: Array.from(new Set((j.sources || []).flatMap(s => s.eventIds))).map(eid => {
                 const ev = events.find(e => e.id === eid); return ev?.name ?? null;
             }).filter(Boolean),
@@ -170,14 +166,9 @@ export const buildGraph = ({
     visibleConsumers.forEach(consumer => {
         mergeConnections(consumer.sources || []).forEach(source => {
             const streamId = source.streamId;
-            if (!visibleStreamIds.has(streamId)) return;
+            if (!visibleStreams.some(s => s.id === streamId)) return;
             const edgeId = `${streamId}->${consumer.id}`;
-            const isSimActive = simulation?.activeEdgeIds?.includes(edgeId);
-            const isCurrent = simulation?.currentEdgeId === edgeId;
-            let simState = 'idle';
-            if (isSimActive) simState = (traceMode && !isCurrent) ? 'visited' : 'active';
-            const isCycle = simulation?.cycleEdges?.includes(edgeId);
-            const edgeColor = isCycle ? '#ef4444' : (isSimActive ? '#6366f1' : '#b4c4d4');
+            const edgeColor = '#b4c4d4';
 
             edges.push({
                 id: edgeId, source: streamId, target: consumer.id, type: 'animated',
@@ -185,26 +176,20 @@ export const buildGraph = ({
                 markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
                 data: {
                     label: 'source', edgeTypeColor: '#6366f1',
-                    simulationState: isCycle ? 'warning' : simState,
-                    speed: (simulation?.speed || 1000) / 1000,
+                    simulationState: 'idle',
+                    speed: 1,
                     eventNames: (source.eventIds || []).map(eid => {
                         const ev = events.find(e => e.id === eid); return ev?.name ?? null;
                     }).filter(Boolean),
-                    routing: edgeRoutings?.[edgeId] || null,
                 },
             });
         });
 
         mergeConnections(consumer.sinks || []).forEach(sink => {
             const streamId = sink.streamId;
-            if (!visibleStreamIds.has(streamId) || dlqStreamIds.has(streamId)) return;
+            if (!visibleStreams.some(s => s.id === streamId)) return;
             const edgeId = `${consumer.id}->${streamId}`;
-            const isSimActive = simulation?.activeEdgeIds?.includes(edgeId);
-            const isCurrent = simulation?.currentEdgeId === edgeId;
-            let simState = 'idle';
-            if (isSimActive) simState = (traceMode && !isCurrent) ? 'visited' : 'active';
-            const isCycle = simulation?.cycleEdges?.includes(edgeId);
-            const edgeColor = isCycle ? '#ef4444' : (isSimActive ? '#6366f1' : '#b4c4d4');
+            const edgeColor = '#b4c4d4';
 
             edges.push({
                 id: edgeId, source: consumer.id, target: streamId, type: 'animated',
@@ -212,16 +197,30 @@ export const buildGraph = ({
                 markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
                 data: {
                     label: 'sink', edgeTypeColor: '#f59e0b',
-                    simulationState: isCycle ? 'warning' : simState,
-                    speed: (simulation?.speed || 1000) / 1000,
+                    simulationState: 'idle',
+                    speed: 1,
                     eventNames: (sink.eventIds || []).map(eid => {
                         const ev = events.find(e => e.id === eid); return ev?.name ?? null;
                     }).filter(Boolean),
-                    routing: edgeRoutings?.[edgeId] || null,
                 },
             });
         });
     });
 
-    return getLayoutedElements(nodes, edges, layoutDirection, nodePositions);
+    return getLayoutedElements(nodes, edges, layoutDirection);
 };
+
+// Animation state decorates the cached topology; it never invokes layout.
+export const applySimulationToGraph = (graph: { nodes: Node[]; edges: Edge[] }, simulation: SimulationState, traceMode: boolean) => ({
+    nodes: graph.nodes.map(node => ({ ...node, data: { ...node.data,
+        simulationState: node.type === 'stream' ? streamSimState(node.id, simulation) : consumerSimState(node.id, simulation),
+    } })),
+    edges: graph.edges.map(edge => {
+        const visited = simulation.activeEdgeIds.includes(edge.id);
+        const current = simulation.active && simulation.currentEdgeId === edge.id;
+        const cycle = simulation.cycleEdges.includes(edge.id);
+        const state = cycle ? 'warning' : current ? 'active' : visited ? (traceMode || !simulation.active ? 'visited' : 'active') : 'idle';
+        return { ...edge, data: { ...edge.data, simulationState: state, speed: simulation.speed / 1000 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: cycle ? '#ef4444' : visited ? '#6366f1' : '#b4c4d4' } };
+    }),
+});

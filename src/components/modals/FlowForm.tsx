@@ -29,9 +29,9 @@ const FlowForm: React.FC<FlowFormProps> = ({ color }) => {
         e.preventDefault();
         if (!name.trim()) return;
         if (editingItem) {
-            updateFlow(editingItem.id, { name: name.trim(), description: desc.trim(), consumerIds });
+            if (!updateFlow(editingItem.id, { name: name.trim(), description: desc.trim(), consumerIds })) return;
         } else {
-            addFlow(name.trim(), consumerIds, desc.trim());
+            if (!addFlow(name.trim(), consumerIds, desc.trim())) return;
         }
         closeModal();
     };

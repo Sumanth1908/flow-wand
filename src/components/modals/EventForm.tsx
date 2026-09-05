@@ -69,9 +69,9 @@ const EventForm: React.FC<EventFormProps> = ({ color }) => {
         e.preventDefault();
         if (!name.trim() || !validateSchema(schema) || !validateExample(examplePayload)) return;
         if (editingItem) {
-            updateEvent(editingItem.id, { name: name.trim(), description: desc.trim(), schema, examplePayload });
+            if (!updateEvent(editingItem.id, { name: name.trim(), description: desc.trim(), schema, examplePayload })) return;
         } else {
-            addEvent(name.trim(), desc.trim(), schema, examplePayload);
+            if (!addEvent(name.trim(), desc.trim(), schema, examplePayload)) return;
         }
         closeModal();
     };

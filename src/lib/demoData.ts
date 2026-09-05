@@ -453,15 +453,32 @@ const legacyConsumers: Consumer[] = [
     },
 ];
 
+const demoConsumerVisuals: Record<string, Pick<Consumer, 'type' | 'shape'>> = {
+    'cons-order-validator': { type: 'api', shape: 'hexagon' },
+    'cons-order-enricher': { type: 'lambda', shape: 'pill' },
+    'cons-order-audit-writer': { type: 'database', shape: 'cylinder' },
+    'cons-payment-gateway': { type: 'gateway', shape: 'hexagon' },
+    'cons-payment-retry': { type: 'scheduler', shape: 'rounded' },
+    'cons-inventory-sync': { type: 'container', shape: 'rectangle' },
+    'cons-warehouse-picker': { type: 'worker', shape: 'bevel' },
+    'cons-tracking-updater': { type: 'api', shape: 'rounded' },
+    'cons-analytics-ingestor': { type: 'database', shape: 'cylinder' },
+    'cons-reco-dispatcher': { type: 'cache', shape: 'pill' },
+};
+
 const consumers: Consumer[] = legacyConsumers.map(consumer => {
-    if (consumer.routingStrategy !== 'conditional' || consumer.routingRules?.length) return consumer;
+    const visual = demoConsumerVisuals[consumer.id];
+    const enrichedConsumer = visual ? { ...consumer, ...visual } : consumer;
+    if (enrichedConsumer.routingStrategy !== 'conditional' || enrichedConsumer.routingRules?.length) {
+        return enrichedConsumer;
+    }
     const sourceEventIds = [...new Set(consumer.sources.flatMap(source => source.eventIds))];
     return {
-        ...consumer,
-        routingRules: consumer.sinks.flatMap(sink => {
+        ...enrichedConsumer,
+        routingRules: consumer.sinks.flatMap((sink, sinkIndex) => {
             const outputIds = sink.eventIds.length ? sink.eventIds : [undefined];
             return outputIds.map((outputEventId, index) => ({
-                id: `${consumer.id}-demo-rule-${sink.streamId}-${index}`,
+                id: `${consumer.id}-demo-rule-${sink.streamId}-${sinkIndex}-${index}`,
                 sourceEventId: sourceEventIds.length === 1 ? sourceEventIds[0] : undefined,
                 condition: 'true',
                 sinkStreamId: sink.streamId,
